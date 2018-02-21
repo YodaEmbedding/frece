@@ -14,13 +14,18 @@ while read -r dir; do
 	echo "$dir" >> "$HOME/.dir_index.txt"
 done <<< "$freq_dirs"
 
+function is_freq() {
+	dir="$1"
+	while read -r freq_dir; do
+		if [ "$dir" == "$freq_dir" ]; then
+			return
+		fi
+	done <<< "$freq_dirs"
+	false
+}
+
 # Write other directories
 while read -r dir; do
-	is_freq=false
-	while read -r freq_dir; do
-		if [ "$dir" == "$freq_dir" ]; then is_freq=true; break; fi
-	done <<< "$freq_dirs"
-
-	if [ "$is_freq" = false ]; then echo "$dir" >> "$HOME/.dir_index.txt"; fi
+	if ! is_freq "$dir"; then echo "$dir" >> "$HOME/.dir_index.txt"; fi
 done <<< "$dirs"
 
