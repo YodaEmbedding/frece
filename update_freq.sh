@@ -25,5 +25,7 @@ if ! "$is_found"; then
 	echo "1	$dir" >> "$HOME/.dir_frequent.txt.1"
 fi
 
+sort -r -o "$HOME/.dir_frequent.txt.1" "$HOME/.dir_frequent.txt.1"
+
 mv "$HOME/.dir_frequent.txt.1" "$HOME/.dir_frequent.txt"
 
