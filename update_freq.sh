@@ -2,14 +2,9 @@
 
 dir="$1"
 
-# TODO hmm... maybe to prevent corruption, should do in-place sed replace?
 # TODO Also consider sorting afterwards
 
 freq=$(cat "$HOME/.dir_frequent.txt" | sort -r)
-#freq_counts=$(echo "$freq" | sed 's/^\([0-9]*\)\t\(.*\)/\1/')
-#freq_dirs=$(  echo "$freq" | sed 's/^\([0-9]*\)\t\(.*\)/\2/')
-
-rm "$HOME/.dir_frequent.txt"
 
 is_found=false
 while read -r line; do
@@ -23,10 +18,12 @@ while read -r line; do
 		is_found=true
 	fi
 
-	echo "$line" >> "$HOME/.dir_frequent.txt"
+	echo "$line" >> "$HOME/.dir_frequent.txt.1"
 done <<< "$freq"
 
 if ! "$is_found"; then
-	echo "1	$dir" >> "$HOME/.dir_frequent.txt"
+	echo "1	$dir" >> "$HOME/.dir_frequent.txt.1"
 fi
+
+mv "$HOME/.dir_frequent.txt.1" "$HOME/.dir_frequent.txt"
 
