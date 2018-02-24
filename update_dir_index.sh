@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Disable globbing
-set -f
-
 path_index="$HOME/.dir_index.txt"
 path_freq="$HOME/.dir_frequent.txt"
 
