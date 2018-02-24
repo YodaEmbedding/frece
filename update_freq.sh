@@ -1,11 +1,14 @@
 #!/bin/bash
 
+# Updates frequency list with given directory
+# Usage: update_freq "/home/user/Desktop"
+
 dir="$1"
+path="$HOME/.dir_frequent.txt"
+path_tmp="$HOME/.dir_frequent.txt.1"
+freq=$(cat "$path")
 
-# TODO Also consider sorting afterwards
-
-freq=$(cat "$HOME/.dir_frequent.txt" | sort -r)
-
+# Increment frequency count for given directory
 is_found=false
 while read -r line; do
 	IFS=$'\t' read -ra items <<< "$line"
@@ -18,14 +21,17 @@ while read -r line; do
 		is_found=true
 	fi
 
-	echo "$line" >> "$HOME/.dir_frequent.txt.1"
+	echo "$line" >> "$path_tmp"
 done <<< "$freq"
 
+# Create entry for given directory if necessary
 if ! "$is_found"; then
-	echo "1	$dir" >> "$HOME/.dir_frequent.txt.1"
+	echo "1	$dir" >> "$path_tmp"
 fi
 
-sort -r -o "$HOME/.dir_frequent.txt.1" "$HOME/.dir_frequent.txt.1"
+# Sort and update
+sort -o "$path_tmp" "$path_tmp"
+mv "$path_tmp" "$path"
 
-mv "$HOME/.dir_frequent.txt.1" "$HOME/.dir_frequent.txt"
+# TODO Frecency
 
