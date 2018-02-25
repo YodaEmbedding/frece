@@ -6,6 +6,8 @@
 
 path="$1"
 input_item="$2"
+
+touch -a "$path"
 freq=$(cat "$path")
 
 # Increment frequency count for given item

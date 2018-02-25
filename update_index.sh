@@ -4,6 +4,9 @@ path_index="$1"
 path_freq="$2"
 input_item="$3"
 
+touch -a "$path_freq"
+touch -a "$path_index"
+
 freq_items=$(cat "$path_freq" | sort -r | sed 's/^\([0-9]*\)\t\(.*\)/\2/')
 
 # Checks if given item is within list of frequent items
