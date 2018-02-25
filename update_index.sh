@@ -1,14 +1,9 @@
 #!/bin/bash
 
-# TODO Maybe the fastest way is to maintain two separate indexes?
-# idk maybe... but try this first; just load everything into memory
-# Actually just rerun update_index (without the reconstruction of index)
-
+input_item="$1"
 path_index="$HOME/.dir_index.txt"
 path_freq="$HOME/.dir_frequent.txt"
 
-# Acquire lists of items
-items=$(cat "$path_index")
 freq_items=$(cat "$path_freq" | sort -r | sed 's/^\([0-9]*\)\t\(.*\)/\2/')
 
 # Checks if given item is within list of frequent items
@@ -22,21 +17,15 @@ function is_freq() {
 	false
 }
 
-# Write most frequent items
-while read -r item; do
-	echo "$item" >> "$path_index.1"
-done <<< "$freq_items"
+if ! is_freq "$input_item"; then
+	exit 1
+fi
 
-# Count number of frequent items
-[ -z "$freq_items" ] && freq_len=0 || freq_len=$(echo "$freq_items" | wc -l)
-
-# Write other items
-n=0
+# Remove input_item from items
+items=$(cat "$path_index")
 while read -r item; do
-	if ((n >= freq_len)) || ! is_freq "$item"; then
+	if [[ $item != $input_item ]]; then
 		echo "$item" >> "$path_index.1"
-	else
-		((n++))
 	fi
 done <<< "$items"
 

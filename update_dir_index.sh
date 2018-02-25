@@ -18,11 +18,6 @@ function is_freq() {
 	false
 }
 
-# Write most frequent directories
-while read -r dir; do
-	echo "$dir" >> "$path_index.1"
-done <<< "$freq_dirs"
-
 # Write other directories
 while read -r dir; do
 	if ! is_freq "$dir"; then echo "$dir" >> "$path_index.1"; fi
