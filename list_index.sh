@@ -20,18 +20,15 @@ function frecency() {
 	freq_count="$1"
 	freq_time="$2"
 
-	min=60
-	hour=3600
-	day=86400
-	week=604800
-
 	dt=$((start_time - freq_time))
 
-	if   ((dt < min));  then echo $((64 * freq_count))
-	elif ((dt < hour)); then echo $((4 * freq_count))
-	elif ((dt < day));  then echo $((2 * freq_count))
-	elif ((dt < week)); then echo $((freq_count / 2))
-	else                     echo $((freq_count / 4))
+	if ((dt == 0)); then
+		echo "scale=3; $freq_count * 2" | bc -l
+	else
+		# 2^(-log10(dt / 6))
+		#    = exp(-ln(2) * ln(dt / 6) / ln(10))
+		#    = exp(-0.3 * ln(dt) - 0.54)
+		echo "scale=3; $freq_count * e(-0.3 * l($dt) - 0.54)" | bc -l
 	fi
 }
 
@@ -44,9 +41,10 @@ function get_ranks() {
 }
 
 if [ "$args" == "list" ]; then
-	get_ranks
-else
-	get_ranks | sort -nr | cut -d$'\t' -f2
-	cat "$path_index"
+	get_ranks | sort -nr
+	exit 1
 fi
+
+get_ranks | sort -nr | cut -d$'\t' -f2
+cat "$path_index"
 

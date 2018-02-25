@@ -30,10 +30,12 @@ done <<< "$freq"
 
 # Create entry for given item if necessary
 if ! "$is_found"; then
-	echo "1	$time	$input_item" >> "$path.1"
+	echo "1	$start_time	$input_item" >> "$path.1"
 fi
 
 # Sort and update
 sort -rno "$path.1" "$path.1"
 mv "$path.1" "$path"
+
+# TODO Scale down when count becomes too large
 
