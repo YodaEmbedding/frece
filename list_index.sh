@@ -7,6 +7,6 @@ path_freq="$2"
 touch -a "$path_freq"
 touch -a "$path_index"
 
-cat "$path_freq" | sort -nr | sed 's/^\([0-9]*\)\t\(.*\)/\2/'
+cat "$path_freq" | sort -nr | sed 's/^\([0-9]*\)\t\([0-9]*\)\t\(.*\)/\3/'
 cat "$path_index"
 

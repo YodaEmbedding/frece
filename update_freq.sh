@@ -9,17 +9,19 @@ input_item="$2"
 
 touch -a "$path"
 freq=$(cat "$path")
+start_time=$(date +%s)
 
 # Increment frequency count for given item
 is_found=false
 while read -r line; do
 	IFS=$'\t' read -ra items <<< "$line"
 	freq_count="${items[0]}"
-	freq_item="${items[1]}"
+	freq_time="${items[1]}"
+	freq_item="${items[2]}"
 
 	if [ "$freq_item" == "$input_item" ]; then
 		let "freq_count=freq_count+1"
-		line="$freq_count	$freq_item"
+		line="$freq_count	$start_time	$freq_item"
 		is_found=true
 	fi
 
@@ -28,12 +30,10 @@ done <<< "$freq"
 
 # Create entry for given item if necessary
 if ! "$is_found"; then
-	echo "1	$input_item" >> "$path.1"
+	echo "1	$time	$input_item" >> "$path.1"
 fi
 
 # Sort and update
 sort -rno "$path.1" "$path.1"
 mv "$path.1" "$path"
-
-# TODO Frecency
 
