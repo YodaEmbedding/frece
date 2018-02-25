@@ -30,7 +30,7 @@ if ! "$is_found"; then
 fi
 
 # Sort and update
-sort -o "$path.1" "$path.1"
+sort -rno "$path.1" "$path.1"
 mv "$path.1" "$path"
 
 # TODO Frecency
