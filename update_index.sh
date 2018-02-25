@@ -1,8 +1,8 @@
 #!/bin/bash
 
-input_item="$1"
-path_index="$HOME/.dir_index.txt"
-path_freq="$HOME/.dir_frequent.txt"
+path_index="$1"
+path_freq="$2"
+input_item="$3"
 
 freq_items=$(cat "$path_freq" | sort -r | sed 's/^\([0-9]*\)\t\(.*\)/\2/')
 
