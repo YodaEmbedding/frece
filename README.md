@@ -15,6 +15,10 @@ where you may specify your own `$ROFI_ARGS`, such as `-hide-scrollbar`. This wil
 
 ![](https://i.imgur.com/ylkVqBg.jpg)
 
+Similarly, other examples are offered, including a rofi script to copy emojis to clipboard:
+
+![](https://i.imgur.com/1PAaIGm.jpg)
+
 ## Features
 
 To list the current frecency rankings:
