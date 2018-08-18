@@ -17,7 +17,7 @@ while read -r line; do
     IFS=$'\t' read -ra items <<< "$line"
     freq_count="${items[0]}"
     freq_time="${items[1]}"
-    freq_item="${items[2]}"
+    freq_item=$(cut -d$'\t' -f3- <<< "$line")
 
     if [ "$freq_item" == "$input_item" ]; then
         let "freq_count=freq_count+1"

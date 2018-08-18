@@ -16,7 +16,7 @@ freq=$(cat "$path_freq")
 
 IFS=$'\n' read -rd '' -a freq_counts <<<$(echo "$freq" | cut -d$'\t' -f1)
 IFS=$'\n' read -rd '' -a freq_times  <<<$(echo "$freq" | cut -d$'\t' -f2)
-IFS=$'\n' read -rd '' -a freq_items  <<<$(echo "$freq" | cut -d$'\t' -f3)
+IFS=$'\n' read -rd '' -a freq_items  <<<$(echo "$freq" | cut -d$'\t' -f3-)
 
 # Uses modified version of z's algorithm https://github.com/rupa/z/wiki/frecency
 function frecency() {
@@ -48,5 +48,5 @@ if [ "$args" == "list" ]; then
     exit 1
 fi
 
-get_ranks | sort -nr | cut -d$'\t' -f2
+get_ranks | sort -nr | cut -d$'\t' -f2-
 cat "$path_index"
