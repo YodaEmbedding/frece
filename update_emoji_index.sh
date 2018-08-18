@@ -12,18 +12,18 @@ freq_emojis=$(cat "$path_freq" | sort -r | sed 's/^\([0-9]*\)\t\(.*\)/\2/')
 
 # Checks if given emoji is within list of frequent emojis
 function is_freq() {
-	emoji="$1"
-	while read -r freq_emojis; do
-		if [ "$emoji" == "$freq_emojis" ]; then
-			return
-		fi
-	done <<< "$freq_emojis"
-	false
+    emoji="$1"
+    while read -r freq_emojis; do
+        if [ "$emoji" == "$freq_emojis" ]; then
+            return
+        fi
+    done <<< "$freq_emojis"
+    false
 }
 
 # Write other emojis
 while read -r emoji; do
-	if ! is_freq "$emoji"; then echo "$emoji" >> "$path_index.1"; fi
+    if ! is_freq "$emoji"; then echo "$emoji" >> "$path_index.1"; fi
 done <<< "$emojis"
 
 mv "$path_index.1" "$path_index"

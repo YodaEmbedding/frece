@@ -9,19 +9,18 @@ freq_dirs=$(cat "$path_freq" | sort -r | sed 's/^\([0-9]*\)\t\(.*\)/\2/')
 
 # Checks if given directory is within list of frequent directories
 function is_freq() {
-	dir="$1"
-	while read -r freq_dir; do
-		if [ "$dir" == "$freq_dir" ]; then
-			return
-		fi
-	done <<< "$freq_dirs"
-	false
+    dir="$1"
+    while read -r freq_dir; do
+        if [ "$dir" == "$freq_dir" ]; then
+            return
+        fi
+    done <<< "$freq_dirs"
+    false
 }
 
 # Write other directories
 while read -r dir; do
-	if ! is_freq "$dir"; then echo "$dir" >> "$path_index.1"; fi
+    if ! is_freq "$dir"; then echo "$dir" >> "$path_index.1"; fi
 done <<< "$dirs"
 
 mv "$path_index.1" "$path_index"
-
