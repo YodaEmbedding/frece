@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Example usage:
+#   ./list_index.sh ~/.dir_index.txt ~/.dir_frequent.txt
+
 path_index="$1"
 path_freq="$2"
 args="$3"
