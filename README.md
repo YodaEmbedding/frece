@@ -5,18 +5,13 @@ These scripts were designed for usage with [rofi](https://github.com/DaveDavenpo
 
 Initially, construct an index. For example, the following constructs a directory index:
 
-    ./update_dir_index.sh
+    ./examples/refresh_dir_index.sh
 
 Now we may use the index with rofi as follows:
 
-    ./list_index.sh ~/.dir_index.txt ~/.dir_frequent.txt | \
-        rofi -dmenu | \
-        (read x; [[ -z $x ]] || (
-            gio open "$x"
-            ./update_freq.sh ~/.dir_frequent.txt "$x"
-            ./update_index.sh ~/.dir_index.txt ~/.dir_frequent.txt "$x"))
+    ./examples/rofi_dir.sh $ROFI_ARGS
 
-This will open up a menu with entries sorted by frecency:
+where you may specify your own `$ROFI_ARGS`, such as `-hide-scrollbar`. This will open up a menu with entries sorted by frecency:
 
 ![](https://i.imgur.com/ylkVqBg.jpg)
 
