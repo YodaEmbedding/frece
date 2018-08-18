@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Example usage:
-#   examples/refresh_dir_index.sh
-#   examples/refresh_emoji_index.sh
+#   ./examples/refresh_dir_index.sh
+#   ./examples/refresh_emoji_index.sh
 
 path_index="$1"
 path_freq="$2"
