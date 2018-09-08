@@ -55,17 +55,17 @@ function get_ranks() {
     for ((i = 0; i < ${#freq_items[@]}; i++))
     do
         local rank=$(frecency "${freq_counts[i]}" "${freq_times[i]}")
-        echo "$rank    ${freq_items[i]}"
+        echo "$rank	${freq_items[i]}"
     done
 }
 
 function get_list() {
-    echo "score    count    last    item"
+    echo "score	count	last	item"
     for ((i = 0; i < ${#freq_items[@]}; i++))
     do
         local rank=$(frecency "${freq_counts[i]}" "${freq_times[i]}")
         local dt=$(display_time $((start_time - freq_times[i])))
-        echo "$rank    ${freq_counts[i]}    $dt    ${freq_items[i]}"
+        echo "$rank	${freq_counts[i]}	$dt	${freq_items[i]}"
     done
 }
 
@@ -74,5 +74,5 @@ if [ "$args" == "list" ]; then
     exit 1
 fi
 
-get_list | sort -nr | cut -d$'\t' -f2-
+get_ranks | sort -nr | cut -d$'\t' -f2-
 cat "$path_index"
