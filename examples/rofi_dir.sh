@@ -1,3 +1,5 @@
+#!/bin/bash
+
 root_dir=$(dirname "$0")"/.."
 
 "$root_dir/list_index.sh" ~/.dir_index.txt ~/.dir_frequent.txt | \
