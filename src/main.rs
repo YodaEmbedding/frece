@@ -120,55 +120,10 @@ fn db_info(now: DateTime<Utc>) -> Result<()> {
     for line in db_str.lines() {
         let field = parse_line(line)?;
         let secs = now.signed_duration_since(field.time).num_seconds();
-        println!("{:.6} {:6} {} {}", frecency(field.count, secs),
-            field.count, secs, field.data);
+        println!("{:.6} {:6} {} {}",
+                 frecency(field.count, secs),
+                 field.count, secs, field.data);
     }
-
-    Ok(())
-}
-
-fn swap_db(line1: usize, line2: usize) -> Result<()> {
-    let (line1, line2) = (cmp::min(line1, line2), cmp::max(line1, line2));
-
-    let mut file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open("db.txt")?;
-
-    let mut file_str = String::new();
-    file.read_to_string(&mut file_str)?;
-
-    let lines = file_str.lines()
-        .collect::<Vec<&str>>();
-
-    // TODO just zip this with fields? or make it a part of Field? idk...
-    // maybe just calculate directly from each field's string length...
-    // or have parse_line return a tuple (len, field)
-    let lengths = lines.iter()
-        .map(|x| x.len())
-        .collect::<Vec<usize>>();
-
-    let seek_pos = |x| lengths.iter().take(x).sum::<usize>() + x;
-    let seek_begin = seek_pos(line1);
-    let seek_end   = seek_pos(line2 + 1);
-
-    let top    = iter::once(lines[line2]);
-    let middle = lines.iter()
-        .skip(line1 + 1)
-        .take(line2 - line1 - 1)
-        .map(|&x| x);
-    let bottom = iter::once(lines[line1]);
-
-    // TODO is collect necessary? maybe itertools::join? benchmark.
-    let write_str = top
-        .chain(middle)
-        .chain(bottom)
-        .collect::<Vec<&str>>()
-        .join("\n");
-
-    assert!(write_str.len() == seek_end - seek_begin - 1);
-    file.seek(SeekFrom::Start(seek_begin as u64))?;
-    file.write_all(write_str.as_bytes())?;
 
     Ok(())
 }
@@ -176,15 +131,8 @@ fn swap_db(line1: usize, line2: usize) -> Result<()> {
 // TODO might be better that these functions only read the whole file once...
 // And don't recompute lines/lengths/etc...
 fn increment_db(line: usize) -> Result<()> {
-    // just seek and write out a string version of the field
-    // also... field.fmt is a bit poorly written!!
-
     let mut fields = db_read_fields()?;
-    fields[line].count += 1; // TODO is this really needed? why not just make new var...
-
-    // now check if swapping required...
-    // figure out what to swap with... [maintain count partial order invariant]
-    // determine what write_str should be in case 1: no swap and case 2: swap
+    fields[line].count += 1;  // TODO is this really needed? why not just make new var...
 
     let mut file = OpenOptions::new()
         .read(true)
@@ -259,12 +207,14 @@ fn main() -> Result<()> {
     // init_db(now)?;
     db_sorted(now)?;
     // swap_db(0, 8)?;
+    db_info(now)?;
     increment_db(5)?;
     // Write db (increment and swap if needed?)
 
     Ok(())
 }
 
+// TODO "Database" object?
 // TODO unit tests? doc strings?
 // TODO unnecessary collect before join?
 // TODO file::create automatically
