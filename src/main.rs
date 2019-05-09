@@ -2,14 +2,9 @@ extern crate chrono;
 extern crate failure;
 
 use chrono::{prelude::*, DateTime};
-use std::{cmp, fmt, iter};
+use std::{fmt, iter};
 use std::fs::{self, File, OpenOptions};
 use std::io::{prelude::*, SeekFrom};
-
-// init
-// update
-//   --purge clear unused entries in frecent index?
-// increment
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -113,7 +108,11 @@ fn to_info_str(fields: &[Field], now: DateTime<Utc>) -> String {
         .join("\n")
 }
 
-fn increment_db(fields: &[Field], now: DateTime<Utc>, line: usize) -> Result<()> {
+fn increment_db(fields: &[Field],
+                lines: &[String], // TODO generic, accept &[&str]
+                now: DateTime<Utc>,
+                filename: &str,
+                line: usize) -> Result<()> {
     let field = Field::new(
         fields[line].count + 1,
         now,
@@ -121,32 +120,26 @@ fn increment_db(fields: &[Field], now: DateTime<Utc>, line: usize) -> Result<()>
 
     let field_str = field.to_string();
 
-    let mut file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open("db.txt")?;
-
-    let mut file_str = String::new();
-    file.read_to_string(&mut file_str)?;
-
-    let lines = file_str.lines().collect::<Vec<&str>>();
-
-    // TODO just zip this with fields? or make it a part of Field? idk...
-    // maybe just calculate directly from each field's string length...
-    // or have parse_line return a tuple (len, field)
     let lengths = lines.iter()
         .map(|x| x.len())
         .collect::<Vec<usize>>();
 
+    let seek_pos = |x| lengths.iter().take(x).sum::<usize>() + x;
+
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(filename)?;
+
+    // TODO simplify the below
+
     // Check if line swap required
     if line == 0 || fields[line - 1].count >= field.count {
-        let seek_pos = |x| lengths.iter().take(x).sum::<usize>() + x;
+        let write_str = field.to_string();
+
         let seek_begin = seek_pos(line);
         let seek_end   = seek_pos(line + 1);
-
-        let write_str = field.to_string();
         assert!(write_str.len() == seek_end - seek_begin - 1);
-
         file.seek(SeekFrom::Start(seek_begin as u64))?;
         file.write_all(write_str.as_bytes())?;
 
@@ -160,24 +153,22 @@ fn increment_db(fields: &[Field], now: DateTime<Utc>, line: usize) -> Result<()>
         .unwrap_or(0);
     let line2 = line;
 
-    let seek_pos = |x| lengths.iter().take(x).sum::<usize>() + x;
-    let seek_begin = seek_pos(line1);
-    let seek_end   = seek_pos(line2 + 1);
-
-    let top = iter::once(field_str.as_str());
+    let top = iter::once(field_str);
     let middle = lines.iter()
         .skip(line1 + 1)
         .take(line2 - line1 - 1)
-        .map(|&x| x);
-    let bottom = iter::once(lines[line1]);
+        .map(|x| x.to_owned())
+        .collect::<Vec<String>>();
+    let bottom = iter::once(lines[line1].to_owned());
 
-    // TODO is collect necessary? maybe itertools::join? benchmark.
     let write_str = top
         .chain(middle)
         .chain(bottom)
-        .collect::<Vec<&str>>()
+        .collect::<Vec<String>>()
         .join("\n");
 
+    let seek_begin = seek_pos(line1);
+    let seek_end   = seek_pos(line2 + 1);
     assert!(write_str.len() == seek_end - seek_begin - 1);
     file.seek(SeekFrom::Start(seek_begin as u64))?;
     file.write_all(write_str.as_bytes())?;
@@ -187,19 +178,25 @@ fn increment_db(fields: &[Field], now: DateTime<Utc>, line: usize) -> Result<()>
 
 fn main() -> Result<()> {
     let now = Utc::now();
+    let db_fname = String::from("db.txt");
+    let db_str = fs::read_to_string(&db_fname)?;
 
-    let db_str = fs::read_to_string("db.txt")?;
-    let lines = db_str.lines().collect::<Vec<&str>>();
+    let lines = db_str.lines()
+        .map(|x| x.to_owned())
+        .collect::<Vec<String>>();
+
     let fields = lines.iter()
-        .map(|&x| parse_line(x))
+        .map(|x| parse_line(&x))
         .collect::<Result<Vec<Field>>>()?;
 
+    // init_db(now)?;
+    increment_db(&fields, &lines, now, &db_fname, 5)?;
+
+    // TODO errr should reread fields before printing...
     let mut sorted_fields = fields.iter()
         .map(|x| x.clone())
         .collect::<Vec<Field>>();
 
-    // init_db(now)?;
-    increment_db(&fields, now, 5)?;
     sort_by_frecency(&mut sorted_fields, now);
     println!("{}", to_name_str(&sorted_fields));
     println!("{}", to_info_str(&sorted_fields, now));
@@ -215,3 +212,9 @@ fn main() -> Result<()> {
 // TODO reduce code duplication... and make proper pure functions and file access!
 // TODO allow frecency weights to be tweaked?
 // TODO DbWriter: writes only invalidated entries? ...too complicated for a simple program, dude...
+
+// TODO argparse
+// init
+// update/pull/merge
+//   --purge clear unused entries in frecent index?
+// increment
