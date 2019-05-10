@@ -40,49 +40,6 @@ fn frecency(count: i64, secs: i64) -> f64 {
     1.0 / (1.0 + (-x).exp())
 }
 
-fn parse_line(line: &str) -> Result<Field> {
-    let split = line.splitn(3, ',').collect::<Vec<&str>>();
-
-    let [count_str, time_str, data] = match split[0..3] {
-        [x, y, z] => [x, y, z],
-        _ => return Err(failure::err_msg("Insufficient entries"))
-    };
-
-    let time = DateTime::parse_from_rfc3339(&time_str)?.with_timezone(&Utc);
-    let count = count_str.parse::<i64>()?;
-
-    Ok(Field::new(count, time, data.to_owned()))
-}
-
-fn init_db(now: DateTime<Utc>) -> Result<()> {
-    let raw_str = fs::read_to_string("raw.txt")?;
-    let mut db_file = File::create("db.txt")?;
-
-    for line in raw_str.lines() {
-        let out_line = Field::new(0, now, line.to_owned()).to_string();
-        writeln!(&mut db_file, "{}", out_line)?;
-    }
-
-    Ok(())
-}
-
-// fn sort_fields<I>(<...>) -> Result<...>
-//
-// fn my_func<T: AsRef<str>>(list: &[T]) {
-//     for s in list {
-//         println!("{}", s.as_ref());
-//     }
-// }
-//
-// fn my_func<I>(list: I)
-//     where I: IntoIterator,
-//           I::Item: AsRef<str>,
-// {
-//     for s in list {
-//         println!("{}", s.as_ref());
-//     }
-// }
-
 fn sort_by_frecency(fields: &mut [Field], now: DateTime<Utc>) {
     fields.sort_by_cached_key(|x| -x.frecency(&now));
 }
@@ -108,11 +65,26 @@ fn to_info_str(fields: &[Field], now: DateTime<Utc>) -> String {
         .join("\n")
 }
 
+fn parse_line(line: &str) -> Result<Field> {
+    let split = line.splitn(3, ',').collect::<Vec<&str>>();
+
+    let [count_str, time_str, data] = match split[0..3] {
+        [x, y, z] => [x, y, z],
+        _ => return Err(failure::err_msg("Insufficient entries"))
+    };
+
+    let time = DateTime::parse_from_rfc3339(&time_str)?.with_timezone(&Utc);
+    let count = count_str.parse::<i64>()?;
+
+    Ok(Field::new(count, time, data.to_owned()))
+}
+
 fn increment_db(fields: &[Field],
-                lines: &[String], // TODO generic, accept &[&str]
+                lines: &[String],
                 now: DateTime<Utc>,
                 filename: &str,
-                line: usize) -> Result<()> {
+                line: usize
+) -> Result<()> {
     let field = Field::new(
         fields[line].count + 1,
         now,
@@ -126,49 +98,42 @@ fn increment_db(fields: &[Field],
 
     let seek_pos = |x| lengths.iter().take(x).sum::<usize>() + x;
 
+    let (write_str, seek_begin, seek_end) = {
+        if line == 0 || fields[line - 1].count >= field.count {
+            // Partial ordering is still valid; no line swap required
+            (field.to_string(), seek_pos(line), seek_pos(line + 1))
+        }
+        else {
+            // Partial ordering is invalid; line swap required
+            let line1 = fields[..line].iter()
+                .rposition(|x| x.count >= field.count)
+                .map(|x| x + 1)
+                .unwrap_or(0);
+            let line2 = line;
+
+            let top = iter::once(field_str);
+            let middle = lines.iter()
+                .skip(line1 + 1)
+                .take(line2 - line1 - 1)
+                .map(|x| x.to_owned())
+                .collect::<Vec<String>>();
+            let bottom = iter::once(lines[line1].to_owned());
+
+            let write_str = top
+                .chain(middle)
+                .chain(bottom)
+                .collect::<Vec<String>>()
+                .join("\n");
+
+            (write_str, seek_pos(line1), seek_pos(line2 + 1))
+        }
+    };
+
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
         .open(filename)?;
 
-    // TODO simplify the below
-
-    // Check if line swap required
-    if line == 0 || fields[line - 1].count >= field.count {
-        let write_str = field.to_string();
-
-        let seek_begin = seek_pos(line);
-        let seek_end   = seek_pos(line + 1);
-        assert!(write_str.len() == seek_end - seek_begin - 1);
-        file.seek(SeekFrom::Start(seek_begin as u64))?;
-        file.write_all(write_str.as_bytes())?;
-
-        return Ok(());
-    }
-
-    // TODO this could be done instead of explicit if check above?
-    let line1 = fields[..line].iter()
-        .rposition(|x| x.count >= field.count)
-        .map(|x| x + 1)
-        .unwrap_or(0);
-    let line2 = line;
-
-    let top = iter::once(field_str);
-    let middle = lines.iter()
-        .skip(line1 + 1)
-        .take(line2 - line1 - 1)
-        .map(|x| x.to_owned())
-        .collect::<Vec<String>>();
-    let bottom = iter::once(lines[line1].to_owned());
-
-    let write_str = top
-        .chain(middle)
-        .chain(bottom)
-        .collect::<Vec<String>>()
-        .join("\n");
-
-    let seek_begin = seek_pos(line1);
-    let seek_end   = seek_pos(line2 + 1);
     assert!(write_str.len() == seek_end - seek_begin - 1);
     file.seek(SeekFrom::Start(seek_begin as u64))?;
     file.write_all(write_str.as_bytes())?;
@@ -176,10 +141,24 @@ fn increment_db(fields: &[Field],
     Ok(())
 }
 
-fn main() -> Result<()> {
-    let now = Utc::now();
-    let db_fname = String::from("db.txt");
-    let db_str = fs::read_to_string(&db_fname)?;
+#[allow(dead_code)]
+fn init_db(raw_filename: &str,
+           db_filename: &str,
+           now: DateTime<Utc>
+) -> Result<()> {
+    let raw_str = fs::read_to_string(raw_filename)?;
+    let mut db_file = File::create(db_filename)?;
+
+    for line in raw_str.lines() {
+        let out_line = Field::new(0, now, line.to_owned()).to_string();
+        writeln!(&mut db_file, "{}", out_line)?;
+    }
+
+    Ok(())
+}
+
+fn read_db(filename: &str) -> Result<(Vec<Field>, Vec<String>)> {
+    let db_str = fs::read_to_string(filename)?;
 
     let lines = db_str.lines()
         .map(|x| x.to_owned())
@@ -189,10 +168,28 @@ fn main() -> Result<()> {
         .map(|x| parse_line(&x))
         .collect::<Result<Vec<Field>>>()?;
 
-    // init_db(now)?;
-    increment_db(&fields, &lines, now, &db_fname, 5)?;
+    Ok((fields, lines))
+}
 
-    // TODO errr should reread fields before printing...
+#[allow(dead_code)]
+fn update_db(raw_filename: &str,
+             db_filename: &str,
+             now: DateTime<Utc>
+) -> Result<()> {
+    Ok(())
+}
+
+fn main() -> Result<()> {
+    let now = Utc::now();
+    let raw_filename = "raw.txt";
+    let db_filename = "db.txt";
+
+    // init_db(raw_filename, db_filename, now)?;
+
+    let (fields, lines) = read_db(db_filename)?;
+    increment_db(&fields, &lines, now, db_filename, 5)?;
+
+    let (fields, _) = read_db(db_filename)?;
     let mut sorted_fields = fields.iter()
         .map(|x| x.clone())
         .collect::<Vec<Field>>();
@@ -209,7 +206,6 @@ fn main() -> Result<()> {
 // TODO unnecessary collect before join?
 // TODO file::create automatically
 // TODO might be more elegant/faster to sort in reverse order?
-// TODO reduce code duplication... and make proper pure functions and file access!
 // TODO allow frecency weights to be tweaked?
 // TODO DbWriter: writes only invalidated entries? ...too complicated for a simple program, dude...
 
