@@ -212,17 +212,17 @@ fn update_db(
         .map(|x| x.to_owned())
         .collect::<Vec<String>>();
 
-    // let raw_set = raw_lines.iter()
-    //     .map(|x| x.to_owned())
-    //     .collect::<HashSet<String>>();
-    //
-    // let db_set = db_fields.iter()
-    //     .map(|x| x.data.to_owned())
-    //     .collect::<HashSet<String>>();
-    //
-    // let old_set = db_set
-    //     .difference(&raw_set)
-    //     .collect::<HashSet<&String>>();
+    let raw_set = raw_lines.iter()
+        .map(|x| x.to_owned())
+        .collect::<HashSet<String>>();
+
+    let db_set = db_fields.iter()
+        .map(|x| x.data.to_owned())
+        .collect::<HashSet<String>>();
+
+    let old_set = db_set
+        .difference(&raw_set)
+        .collect::<HashSet<&String>>();
 
     // TODO
     // Can also consider mapping "GUID" <-> "String" to conserve memory
@@ -234,20 +234,24 @@ fn update_db(
         .map(|(i, x)| (x.data.to_owned(), (i, x)))
         .collect::<HashMap<_, _>>();
 
-    let raw_fields = raw_lines.iter()
+    let new_fields = raw_lines.iter()
         .map(|x| db_lookup
              .get(x)
              .map(|(_, y)| y.to_owned())
-             .unwrap_or_else(|| Field::new(0, now, x.to_owned())))
-        .collect::<Vec<_>>();
-
-    let fields = raw_fields;
+             .unwrap_or_else(|| Field::new(0, now, x.to_owned())));
 
     // let purge_old = false;
-
     // if !purge_old && !old_set.is_empty() {
-    // let db_fields = ...
-    // }
+
+    let mut old_fields = old_set.into_iter()
+        .map(|x| &db_lookup[x])
+        .collect::<Vec<&(usize, Field)>>();
+    old_fields.sort_by_key(|(i, _)| i);
+
+    let old_fields = old_fields.into_iter()
+        .map(|(_, x)| x.to_owned());
+
+    let fields = new_fields.chain(old_fields);
 
     let mut db_file = OpenOptions::new()
         .write(true)
