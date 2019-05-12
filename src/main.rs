@@ -1,7 +1,7 @@
 extern crate chrono;
 extern crate failure;
 
-use chrono::{prelude::*, DateTime};
+use chrono::{prelude::*, DateTime, NaiveDateTime};
 use std::{fmt, iter};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
@@ -40,7 +40,10 @@ impl Field {
 
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:06},{},{}", self.count, self.time.to_rfc3339(), self.data)
+        write!(f, "{:06},{},{}",
+               self.count,
+               self.time.to_rfc3339_opts(SecondsFormat::Micros, false),
+               self.data)
     }
 }
 
@@ -199,19 +202,11 @@ fn read_db(db_filename: &str) -> Result<(Vec<Field>, Vec<String>)> {
     Ok((fields, lines))
 }
 
-#[allow(dead_code)]
-fn update_db(
-    raw_filename: &str,
-    db_filename: &str,
-    now: DateTime<Utc>
-) -> Result<()> {
-    let raw_str = fs::read_to_string(raw_filename)?;
-    let (db_fields, _) = read_db(db_filename)?;
-
-    let raw_lines = raw_str.lines()
-        .map(|x| x.to_owned())
-        .collect::<Vec<String>>();
-
+fn get_old_fields(
+    raw_lines: &[String],
+    db_fields: &[Field],
+    db_lookup: &HashMap<&String, (usize, &Field)>,
+) -> Vec::<Field> {
     let old_set = {
         let raw_set = raw_lines.iter()
             .collect::<HashSet<&String>>();
@@ -226,10 +221,29 @@ fn update_db(
             .collect::<HashSet<&String>>()
     };
 
-    // TODO
-    // Can also consider mapping "GUID" <-> "String" to conserve memory
-    // Or use pointers... or reference counted strings!
-    // Or uh... what's wrong with plain old references to immutable memory?
+    let mut old_fields = old_set.into_iter()
+        .map(|x| db_lookup[x])
+        .collect::<Vec<_>>();
+    old_fields.sort_by_key(|&(i, _)| i);
+
+    let old_fields = old_fields.into_iter()
+        .map(|(_, x)| x.to_owned());
+
+    old_fields.collect::<Vec<_>>()
+}
+
+#[allow(dead_code)]
+fn update_db(
+    raw_filename: &str,
+    db_filename: &str,
+    now: DateTime<Utc>
+) -> Result<()> {
+    let raw_str = fs::read_to_string(raw_filename)?;
+    let (db_fields, _) = read_db(db_filename)?;
+
+    let raw_lines = raw_str.lines()
+        .map(|x| x.to_owned())
+        .collect::<Vec<String>>();
 
     let db_lookup = db_fields.iter()
         .enumerate()
@@ -239,18 +253,33 @@ fn update_db(
     let new_fields = raw_lines.iter()
         .map(|x| db_lookup.get(x)
              .map(|&(_, field)| Box::new(field.to_owned()))
-             .unwrap_or_else(|| Box::new(Field::new(0, now, x.to_owned()))));
+             .unwrap_or_else(|| Box::new(Field::new(0, now, x.to_owned()))))
+        .map(|x| *x);
 
-    // let purge_old = false;
-    // if !purge_old && !old_set.is_empty() {
+    let purge_old = false;
+    let reset_time = true;
 
-    let mut old_fields = old_set.into_iter()
-        .map(|x| db_lookup[x])
-        .collect::<Vec<_>>();
-    old_fields.sort_by_key(|&(i, _)| i);
+    // Maybe specify default time as argument...? nah... too complicated for no gain
+    // just make utc0 default in ALL cases, including when db_init TODO
+    // TODO let now = utc0...
+    let utc0 = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(0, 0), Utc);
 
-    let old_fields = old_fields.into_iter()
-        .map(|(_, x)| Box::new(x.to_owned()));
+    // TODO this looks a BIT gross...
+    // OK, it looks absolutely terrible. But it's working at the moment, so...
+    let old_fields: Box<Iterator<Item = Field>> = match purge_old {
+        true  => Box::new(iter::empty::<Field>()),
+        false => Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup)
+                          .into_iter()
+                          // TODO errr should only be resetting the ones that are 0 count!!!
+                          // maybe make a separate function for that...
+                          // instead of this monstrosity XD
+                          .map(|x| match reset_time {
+                              true => Box::new(Field::new(x.count, utc0, x.data)),
+                              false => Box::new(x),
+                          })
+                          .map(|x| *x)
+        ),
+    };
 
     let fields = new_fields.chain(old_fields);
 
@@ -292,43 +321,32 @@ fn main() -> Result<()> {
 }
 
 
-
-
-
-
-
-// Draw out model and API on paper?
-
 // Switch to "simple" for now...
 // But (sortByCount . update) probably preserves behavior due to stability of frecency sort?
 // (Verify that sortByFrecency . sortByCount . sortById == sortByFrecency . sortById)
 // errr actually it sounds like it doesn't...? but time is causal... so maybe? ...but non-linear? but is linear weighted? idk...
 
 
-
-
-
-
+// TODO remame frece, update readme, put on AUR (bin, git), fix examples, continuous integration
+// TODO unit tests? doc strings?
 // TODO lock database file
 // TODO "Database" object?
-// TODO unit tests? doc strings?
 // TODO unnecessary collect before join?
 // TODO file::create automatically
-// TODO might be more elegant/faster to sort in reverse order?
 // TODO allow frecency weights to be tweaked?
 // TODO DbWriter: writes only invalidated entries? ...too complicated for a simple program, dude...
 // TODO to_owned can all be fixed by changing collect type into &String?
 // TODO some copying can be reduced using into_iter() instead of iter()
 // TODO cloned/to_owned/borrowed()?
 // See https://hermanradtke.com/2015/06/22/effectively-using-iterators-in-rust.html
-// TODO remame frece, update readme, put on AUR, add examples
 
 // TODO argparse
 // init
 // update/pull/merge
 //   --purge clear unused entries in frecent index?
+//   --reset-time  reset time for all 0-count entries to UTC-0
+// TODO --reset-time should use oldest time...
 // increment
-
 
 
 
