@@ -18,13 +18,13 @@ struct Field {
 }
 
 trait FieldSlice {
-    fn sort_by_frecency(&mut self, now: DateTime<Utc>);
+    fn sort_by_frecency(&mut self, dt: DateTime<Utc>);
     fn sort_by_data(&mut self);
 }
 
 trait FieldIterator {
     fn to_data_str(self) -> String;
-    fn to_info_str(self, now: DateTime<Utc>) -> String;
+    fn to_info_str(self, dt: DateTime<Utc>) -> String;
 }
 
 impl Field {
@@ -32,8 +32,8 @@ impl Field {
         Self { count, time, data }
     }
 
-    pub fn frecency(&self, now: &DateTime<Utc>) -> i64 {
-        let secs = now.signed_duration_since(self.time).num_seconds();
+    pub fn frecency(&self, dt: &DateTime<Utc>) -> i64 {
+        let secs = dt.signed_duration_since(self.time).num_seconds();
         (1e15 * frecency(self.count, secs)) as i64
     }
 }
@@ -48,8 +48,8 @@ impl fmt::Display for Field {
 }
 
 impl FieldSlice for [Field] {
-    fn sort_by_frecency(&mut self, now: DateTime<Utc>) {
-        self.sort_by_cached_key(|x| -x.frecency(&now));
+    fn sort_by_frecency(&mut self, dt: DateTime<Utc>) {
+        self.sort_by_cached_key(|x| -x.frecency(&dt));
     }
 
     fn sort_by_data(&mut self) {
@@ -68,10 +68,10 @@ impl<'a> FieldIterator for Iter<'a, Field> {
             .join("\n")
     }
 
-    fn to_info_str(self, now: DateTime<Utc>) -> String {
+    fn to_info_str(self, dt: DateTime<Utc>) -> String {
         self
             .map(|field| {
-                let secs = now.signed_duration_since(field.time).num_seconds();
+                let secs = dt.signed_duration_since(field.time).num_seconds();
                 format!("{:.6}  {:6}  {:25}  {}",
                         frecency(field.count, secs),
                         field.count,
@@ -84,11 +84,13 @@ impl<'a> FieldIterator for Iter<'a, Field> {
 }
 
 fn frecency(count: i64, secs: i64) -> f64 {
-    let x = 1.0
-        + 0.10 * (1.0 + count as f64).ln()
-        - 0.10 * (1.0 + secs  as f64).ln();
+    let x = 0.0
+        + 0.25 * (1.0 + count as f64).ln()
+        - 0.25 * (1.0 + secs  as f64).ln();
 
     1.0 / (1.0 + (-x).exp())
+
+    // TODO maybe if secs == 0, return 0.0?
 }
 
 fn parse_line(line: &str) -> Result<Field> {
@@ -108,13 +110,13 @@ fn parse_line(line: &str) -> Result<Field> {
 fn increment_db(
     fields: &[Field],
     lines: &[String],
-    now: DateTime<Utc>,
+    dt: DateTime<Utc>,
     db_filename: &str,
     line: usize
 ) -> Result<()> {
     let field = Field::new(
         fields[line].count + 1,
-        now,
+        dt,
         fields[line].data.clone());
 
     let field_str = field.to_string();
@@ -175,13 +177,13 @@ fn increment_db(
 fn init_db(
     raw_filename: &str,
     db_filename: &str,
-    now: DateTime<Utc>
+    dt: DateTime<Utc>
 ) -> Result<()> {
     let raw_str = fs::read_to_string(raw_filename)?;
     let mut db_file = File::create(db_filename)?;
 
     for line in raw_str.lines() {
-        let field = Field::new(0, now, line.to_owned());
+        let field = Field::new(0, dt, line.to_owned());
         writeln!(&mut db_file, "{}", field)?;
     }
 
@@ -232,11 +234,10 @@ fn get_old_fields(
     old_fields.collect::<Vec<_>>()
 }
 
-#[allow(dead_code)]
 fn update_db(
     raw_filename: &str,
     db_filename: &str,
-    now: DateTime<Utc>
+    dt: DateTime<Utc>
 ) -> Result<()> {
     let raw_str = fs::read_to_string(raw_filename)?;
     let (db_fields, _) = read_db(db_filename)?;
@@ -253,32 +254,15 @@ fn update_db(
     let new_fields = raw_lines.iter()
         .map(|x| db_lookup.get(x)
              .map(|&(_, field)| Box::new(field.to_owned()))
-             .unwrap_or_else(|| Box::new(Field::new(0, now, x.to_owned()))))
+             .unwrap_or_else(|| Box::new(Field::new(0, dt, x.to_owned()))))
         .map(|x| *x);
 
     let purge_old = false;
-    let reset_time = true;
 
-    // Maybe specify default time as argument...? nah... too complicated for no gain
-    // just make utc0 default in ALL cases, including when db_init TODO
-    // TODO let now = utc0...
-    let utc0 = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(0, 0), Utc);
-
-    // TODO this looks a BIT gross...
-    // OK, it looks absolutely terrible. But it's working at the moment, so...
     let old_fields: Box<Iterator<Item = Field>> = match purge_old {
         true  => Box::new(iter::empty::<Field>()),
         false => Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup)
-                          .into_iter()
-                          // TODO errr should only be resetting the ones that are 0 count!!!
-                          // maybe make a separate function for that...
-                          // instead of this monstrosity XD
-                          .map(|x| match reset_time {
-                              true => Box::new(Field::new(x.count, utc0, x.data)),
-                              false => Box::new(x),
-                          })
-                          .map(|x| *x)
-        ),
+                          .into_iter()),
     };
 
     let fields = new_fields.chain(old_fields);
@@ -296,13 +280,15 @@ fn update_db(
 }
 
 fn main() -> Result<()> {
+    let epoch = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp(0, 0), Utc);
     let now = Utc::now();
     let raw_filename = "raw.txt";
     let db_filename = "db.txt";
 
-    // init_db(raw_filename, db_filename, now)?;
+    // init_db(raw_filename, db_filename, epoch)?;
 
-    update_db(raw_filename, db_filename, now)?;
+    update_db(raw_filename, db_filename, epoch)?;
 
     let (fields, lines) = read_db(db_filename)?;
     increment_db(&fields, &lines, now, db_filename, 5)?;
@@ -346,6 +332,7 @@ fn main() -> Result<()> {
 //   --purge clear unused entries in frecent index?
 //   --reset-time  reset time for all 0-count entries to UTC-0
 // TODO --reset-time should use oldest time...
+// maybe --epoch can be a parameter!
 // increment
 
 
