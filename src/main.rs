@@ -1,4 +1,5 @@
 extern crate chrono;
+extern crate clap;
 extern crate failure;
 
 use chrono::{prelude::*, DateTime, NaiveDateTime};
