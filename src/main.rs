@@ -95,11 +95,11 @@ fn frecency(count: i64, secs: i64) -> f64 {
     1.0 / (1.0 + (-x).exp())
 }
 
-fn get_old_fields(
+fn get_old_fields<'a>(
     raw_lines: &[String],
     db_fields: &[Field],
-    db_lookup: &HashMap<&String, (usize, &Field)>,
-) -> Vec::<Field> {
+    db_lookup: &HashMap<&String, (usize, &'a Field)>,
+) -> impl Iterator<Item = &'a Field> {
     let old_set = {
         let raw_set = raw_lines.iter()
             .collect::<HashSet<&String>>();
@@ -119,7 +119,7 @@ fn get_old_fields(
         .collect::<Vec<_>>();
 
     old_fields.sort_by_key(|&(i, _)| i);
-    old_fields.into_iter().map(|(_, x)| x.to_owned()).collect()
+    old_fields.into_iter().map(|(_, x)| x)
 }
 
 fn parse_line(line: &str) -> Result<Field> {
@@ -220,15 +220,15 @@ fn update_db(
         .map(|x| Box::new(db_lookup.get(x)
              .map(|&(_, field)| field.to_owned())
              .unwrap_or_else(|| Field::new(0, dt, x.to_owned()))))
-        .map(|x| *x);
+        .map(|x| *x)
+        .collect::<Vec<_>>();
 
-    let old_fields: Box<Iterator<Item = Field>> = match purge_old {
-        true  => Box::new(iter::empty::<Field>()),
-        false => Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup)
-                          .into_iter()),
+    let old_fields: Box<Iterator<Item = &Field>> = match purge_old {
+        true  => Box::new(iter::empty::<&Field>()),
+        false => Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup)),
     };
 
-    let fields = new_fields.chain(old_fields);
+    let fields = new_fields.iter().chain(old_fields);
 
     let mut db_file = OpenOptions::new()
         .write(true)
