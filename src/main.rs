@@ -60,8 +60,6 @@ impl FieldSlice for [Field] {
     }
 }
 
-// impl<I> FieldIterator for I where
-//     I: Iterator<Item = Field> {
 impl<'a> FieldIterator for Iter<'a, Field> {
     fn to_data_str(self) -> String {
         self
@@ -86,13 +84,42 @@ impl<'a> FieldIterator for Iter<'a, Field> {
 }
 
 fn frecency(count: i64, secs: i64) -> f64 {
+    if count == 0 {
+        return 0.0;
+    }
+
     let x = 0.0
         + 0.25 * (1.0 + count as f64).ln()
         - 0.25 * (1.0 + secs  as f64).ln();
 
     1.0 / (1.0 + (-x).exp())
+}
 
-    // TODO maybe if secs == 0, return 0.0?
+fn get_old_fields(
+    raw_lines: &[String],
+    db_fields: &[Field],
+    db_lookup: &HashMap<&String, (usize, &Field)>,
+) -> Vec::<Field> {
+    let old_set = {
+        let raw_set = raw_lines.iter()
+            .collect::<HashSet<&String>>();
+
+        let db_set = db_fields.iter()
+            .map(|x| &x.data)
+            .collect::<HashSet<&String>>();
+
+        db_set
+            .difference(&raw_set)
+            .map(|&x| x)
+            .collect::<HashSet<&String>>()
+    };
+
+    let mut old_fields = old_set.into_iter()
+        .map(|x| db_lookup[x])
+        .collect::<Vec<_>>();
+
+    old_fields.sort_by_key(|&(i, _)| i);
+    old_fields.into_iter().map(|(_, x)| x.to_owned()).collect()
 }
 
 fn parse_line(line: &str) -> Result<Field> {
@@ -124,48 +151,11 @@ fn increment_db(
         dt,
         fields[line].data.clone());
 
-    let field_str = field.to_string();
-
-    let lengths = lines.iter()
-        .map(|x| x.len())
-        .collect::<Vec<usize>>();
-
-    let seek_pos = |x| lengths.iter().take(x).sum::<usize>() + x;
-
     // TODO actually, this can be further simplified to only write "count,time"
-    let write_str = field_str;
-    let seek_begin = seek_pos(line);
-    let seek_end = seek_pos(line + 1);
-
-    // TODO Remove?
-    // Maintain count order
-    // let (write_str, seek_begin, seek_end) = {
-    //     if line == 0 || fields[line - 1].count >= field.count {
-    //         // Partial ordering is still valid; no line swap required
-    //         (field_str, seek_pos(line), seek_pos(line + 1))
-    //     }
-    //     else {
-    //         // Partial ordering is invalid; line swap required
-    //         let line1 = fields[..line].iter()
-    //             .rposition(|x| x.count >= field.count)
-    //             .map(|x| x + 1)
-    //             .unwrap_or(0);
-    //         let line2 = line;
-    //
-    //         let middle = lines.iter()
-    //             .skip(line1 + 1)
-    //             .take(line2 - line1 - 1);
-    //
-    //         let write_str = iter::once(&field_str)
-    //             .chain(middle)
-    //             .chain(iter::once(&lines[line1]))
-    //             .map(|x| x.as_str())
-    //             .collect::<Vec<&str>>()
-    //             .join("\n");
-    //
-    //         (write_str, seek_pos(line1), seek_pos(line2 + 1))
-    //     }
-    // };
+    let write_str = field.to_string();
+    let lengths = lines.iter().map(|x| x.len());
+    let seek_begin = lengths.take(line).sum::<usize>() + line;
+    let seek_end = seek_begin + lines[line].len() + 1;
 
     let mut db_file = OpenOptions::new()
         .write(true)
@@ -206,36 +196,6 @@ fn read_db(db_filename: &str) -> Result<(Vec<Field>, Vec<String>)> {
         .collect::<Result<Vec<Field>>>()?;
 
     Ok((fields, lines))
-}
-
-fn get_old_fields(
-    raw_lines: &[String],
-    db_fields: &[Field],
-    db_lookup: &HashMap<&String, (usize, &Field)>,
-) -> Vec::<Field> {
-    let old_set = {
-        let raw_set = raw_lines.iter()
-            .collect::<HashSet<&String>>();
-
-        let db_set = db_fields.iter()
-            .map(|x| &x.data)
-            .collect::<HashSet<&String>>();
-
-        db_set
-            .difference(&raw_set)
-            .map(|&x| x)
-            .collect::<HashSet<&String>>()
-    };
-
-    let mut old_fields = old_set.into_iter()
-        .map(|x| db_lookup[x])
-        .collect::<Vec<_>>();
-    old_fields.sort_by_key(|&(i, _)| i);
-
-    let old_fields = old_fields.into_iter()
-        .map(|(_, x)| x.to_owned());
-
-    old_fields.collect::<Vec<_>>()
 }
 
 fn update_db(
@@ -377,13 +337,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-
-// Switch to "simple" for now...
-// But (sortByCount . update) probably preserves behavior due to stability of frecency sort?
-// (Verify that sortByFrecency . sortByCount . sortById == sortByFrecency . sortById)
-// errr actually it sounds like it doesn't...? but time is causal... so maybe? ...but non-linear? but is linear weighted? idk...
-
-
 // TODO remame frece, update readme, put on AUR (bin, git), fix examples, continuous integration
 // TODO unit tests? doc strings?
 // TODO lock database file
@@ -392,18 +345,3 @@ fn main() -> Result<()> {
 // TODO file::create automatically
 // TODO allow frecency weights to be tweaked?
 // TODO DbWriter: writes only invalidated entries? ...too complicated for a simple program, dude...
-// TODO to_owned can all be fixed by changing collect type into &String?
-// TODO some copying can be reduced using into_iter() instead of iter()
-// TODO cloned/to_owned/borrowed()?
-// See https://hermanradtke.com/2015/06/22/effectively-using-iterators-in-rust.html
-
-// TODO WHY ARE WE BOTHERING TO SORT BY COUNT, ANYWAYS?
-// if we do this, we don't preserve the initial ordering when it matters!!
-// (but it rarely matters, I guess...)
-
-
-// TODO so... remove "swap" functionality
-// Probably need to purge to maintain order? Actually... not really. Can interweave.
-
-
-// Alternatively, add an GUID for insertion order... doesn't work too well with merges though... makes things complicated
