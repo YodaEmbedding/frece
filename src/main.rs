@@ -3,11 +3,12 @@ extern crate clap;
 extern crate failure;
 
 use chrono::{prelude::*, DateTime, NaiveDateTime};
-use std::{fmt, iter};
+use clap::{App, Arg, SubCommand};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{prelude::*, SeekFrom};
 use std::slice::Iter;
+use std::{fmt, iter};
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -113,8 +114,11 @@ fn increment_db(
     lines: &[String],
     dt: DateTime<Utc>,
     db_filename: &str,
-    line: usize
+    entry: &str,
 ) -> Result<()> {
+    let line = fields.iter().position(|x| x.data == entry)
+        .ok_or(failure::err_msg("Entry not found in database"))?;
+
     let field = Field::new(
         fields[line].count + 1,
         dt,
@@ -174,7 +178,6 @@ fn increment_db(
     Ok(())
 }
 
-#[allow(dead_code)]
 fn init_db(
     raw_filename: &str,
     db_filename: &str,
@@ -238,7 +241,8 @@ fn get_old_fields(
 fn update_db(
     raw_filename: &str,
     db_filename: &str,
-    dt: DateTime<Utc>
+    dt: DateTime<Utc>,
+    purge_old: bool,
 ) -> Result<()> {
     let raw_str = fs::read_to_string(raw_filename)?;
     let (db_fields, _) = read_db(db_filename)?;
@@ -257,8 +261,6 @@ fn update_db(
              .map(|&(_, field)| field.to_owned())
              .unwrap_or_else(|| Field::new(0, dt, x.to_owned()))))
         .map(|x| *x);
-
-    let purge_old = false;
 
     let old_fields: Box<Iterator<Item = Field>> = match purge_old {
         true  => Box::new(iter::empty::<Field>()),
@@ -284,25 +286,93 @@ fn main() -> Result<()> {
     let epoch = DateTime::<Utc>::from_utc(
         NaiveDateTime::from_timestamp(0, 0), Utc);
     let now = Utc::now();
-    let raw_filename = "raw.txt";
-    let db_filename = "db.txt";
 
-    // init_db(raw_filename, db_filename, epoch)?;
+    let matches = App::new("frece")
+        .version("1.0")
+        .author("Mateen Ulhaq <mulhaq2005@gmail.com>")
+        .about("Frecency indexed database manager.")
+        .subcommand(
+            SubCommand::with_name("increment")
+            .about("Print frecency sorted entries")
+            .arg(Arg::with_name("DB_FILE")
+                 .help("Path to frecency database file")
+                 .required(true)
+                 .index(1))
+            .arg(Arg::with_name("ENTRY")
+                 .help("Entry to increment")
+                 .required(true)
+                 .index(2)))
+        .subcommand(
+            SubCommand::with_name("init")
+            .about("Create a database file from given entries file")
+            .arg(Arg::with_name("DB_FILE")
+                 .help("Path to frecency database file")
+                 .required(true)
+                 .index(1))
+            .arg(Arg::with_name("ENTRY_FILE")
+                 .help("Path to list of entries, separated by newlines")
+                 .required(true)
+                 .index(2)))
+        .subcommand(
+            SubCommand::with_name("print")
+            .about("Print frecency sorted entries")
+            .arg(Arg::with_name("DB_FILE")
+                 .help("Path to frecency database file")
+                 .required(true)
+                 .index(1))
+            .arg(Arg::with_name("verbose")
+                 .help("Outputs frecency, counts, date, and entries")
+                 .short("v")
+                 .long("verbose")))
+        .subcommand(
+            SubCommand::with_name("update")
+            .about("Updates a database file from given entries file")
+            .arg(Arg::with_name("DB_FILE")
+                 .help("Path to frecency database file")
+                 .required(true)
+                 .index(1))
+            .arg(Arg::with_name("ENTRY_FILE")
+                 .help("Path to list of entries, separated by newlines")
+                 .required(true)
+                 .index(2))
+            .arg(Arg::with_name("purge-old")
+                 .help("Purge any entries *not* in ENTRY_FILE")
+                 .long("purge-old")))
+        .get_matches();
 
-    update_db(raw_filename, db_filename, epoch)?;
+    if let Some(matches) = matches.subcommand_matches("init") {
+        let db_filename  = matches.value_of("DB_FILE").unwrap();
+        let raw_filename = matches.value_of("ENTRY_FILE").unwrap();
+        init_db(raw_filename, db_filename, epoch)?;
+    }
 
-    let (fields, lines) = read_db(db_filename)?;
-    increment_db(&fields, &lines, now, db_filename, 5)?;
+    if let Some(matches) = matches.subcommand_matches("increment") {
+        let db_filename  = matches.value_of("DB_FILE").unwrap();
+        let entry        = matches.value_of("ENTRY").unwrap();
+        let (fields, lines) = read_db(db_filename)?;
+        increment_db(&fields, &lines, now, db_filename, entry)?;
+    }
 
-    let (fields, _lines) = read_db(db_filename)?;
-    let mut sorted_fields = fields.iter()
-        .cloned()
-        .collect::<Vec<Field>>();
+    if let Some(matches) = matches.subcommand_matches("print") {
+        let db_filename  = matches.value_of("DB_FILE").unwrap();
+        let verbose      = matches.is_present("verbose");
+        let (mut fields, _lines) = read_db(db_filename)?;
+        fields.sort_by_frecency(now);
 
-    // TODO do you REALLY want to have to call iter() beforehand?
-    sorted_fields.sort_by_frecency(now);
-    println!("{}", sorted_fields.iter().to_data_str());
-    println!("{}", sorted_fields.iter().to_info_str(now));
+        if verbose {
+            println!("{}", fields.iter().to_info_str(now));
+        }
+        else {
+            println!("{}", fields.iter().to_data_str());
+        }
+    }
+
+    if let Some(matches) = matches.subcommand_matches("update") {
+        let db_filename  = matches.value_of("DB_FILE").unwrap();
+        let raw_filename = matches.value_of("ENTRY_FILE").unwrap();
+        let purge_old    = matches.is_present("purge-old");
+        update_db(raw_filename, db_filename, epoch, purge_old)?;
+    }
 
     Ok(())
 }
@@ -326,17 +396,6 @@ fn main() -> Result<()> {
 // TODO some copying can be reduced using into_iter() instead of iter()
 // TODO cloned/to_owned/borrowed()?
 // See https://hermanradtke.com/2015/06/22/effectively-using-iterators-in-rust.html
-
-// TODO argparse
-// init
-// update/pull/merge
-//   --purge clear unused entries in frecent index?
-//   --reset-time  reset time for all 0-count entries to UTC-0
-// TODO --reset-time should use oldest time...
-// maybe --epoch can be a parameter!
-// increment
-
-
 
 // TODO WHY ARE WE BOTHERING TO SORT BY COUNT, ANYWAYS?
 // if we do this, we don't preserve the initial ordering when it matters!!
