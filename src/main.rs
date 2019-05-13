@@ -252,9 +252,9 @@ fn update_db(
         .collect::<HashMap<_, _>>();
 
     let new_fields = raw_lines.iter()
-        .map(|x| db_lookup.get(x)
-             .map(|&(_, field)| Box::new(field.to_owned()))
-             .unwrap_or_else(|| Box::new(Field::new(0, dt, x.to_owned()))))
+        .map(|x| Box::new(db_lookup.get(x)
+             .map(|&(_, field)| field.to_owned())
+             .unwrap_or_else(|| Field::new(0, dt, x.to_owned()))))
         .map(|x| *x);
 
     let purge_old = false;
