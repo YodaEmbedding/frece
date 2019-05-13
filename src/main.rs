@@ -5,6 +5,7 @@ extern crate fs2;
 
 use chrono::{prelude::*, DateTime, NaiveDateTime};
 use clap::{App, Arg, SubCommand};
+use fs2::FileExt;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{prelude::*, SeekFrom};
@@ -158,8 +159,10 @@ fn increment_db(
         .open(db_filename)?;
 
     assert!(write_str.len() == seek_end - seek_begin - 1);
+    db_file.lock_exclusive()?;
     db_file.seek(SeekFrom::Start(seek_begin as u64))?;
     db_file.write_all(write_str.as_bytes())?;
+    db_file.unlock()?;
 
     Ok(())
 }
@@ -171,11 +174,14 @@ fn init_db(
 ) -> Result<()> {
     let raw_str = fs::read_to_string(raw_filename)?;
     let mut db_file = File::create(db_filename)?;
+    db_file.lock_exclusive()?;
 
     for line in raw_str.lines() {
         let field = Field::new(0, dt, line);
         writeln!(&mut db_file, "{}", field)?;
     }
+
+    db_file.unlock()?;
 
     Ok(())
 }
@@ -231,9 +237,13 @@ fn update_db(
         .truncate(true)
         .open(db_filename)?;
 
+    db_file.lock_exclusive()?;
+
     for field in fields {
         writeln!(&mut db_file, "{}", field)?;
     }
+
+    db_file.unlock()?;
 
     Ok(())
 }
@@ -335,5 +345,4 @@ fn main() -> Result<()> {
 
 // TODO remame frece, update readme, put on AUR (bin, git), fix examples, continuous integration
 // TODO unit tests? doc strings?
-// TODO lock database file
 // TODO Allow user to specify custom frecency weights
