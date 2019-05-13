@@ -1,6 +1,7 @@
 extern crate chrono;
 extern crate clap;
 extern crate failure;
+extern crate fs2;
 
 use chrono::{prelude::*, DateTime, NaiveDateTime};
 use clap::{App, Arg, SubCommand};
