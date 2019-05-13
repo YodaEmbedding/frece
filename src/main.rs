@@ -30,8 +30,8 @@ trait FieldIterator {
 }
 
 impl Field {
-    pub fn new(count: i64, time: DateTime<Utc>, data: String) -> Self {
-        Self { count, time, data }
+    pub fn new(count: i64, time: DateTime<Utc>, data: &str) -> Self {
+        Self { count, time, data: data.to_owned() }
     }
 
     pub fn frecency(&self, dt: &DateTime<Utc>) -> i64 {
@@ -133,7 +133,7 @@ fn parse_line(line: &str) -> Result<Field> {
     let time = DateTime::parse_from_rfc3339(&time_str)?.with_timezone(&Utc);
     let count = count_str.parse::<i64>()?;
 
-    Ok(Field::new(count, time, data.to_owned()))
+    Ok(Field::new(count, time, data))
 }
 
 fn increment_db(
@@ -146,12 +146,7 @@ fn increment_db(
     let line = fields.iter().position(|x| x.data == entry)
         .ok_or(failure::err_msg("Entry not found in database"))?;
 
-    let field = Field::new(
-        fields[line].count + 1,
-        dt,
-        fields[line].data.clone());
-
-    // TODO actually, this can be further simplified to only write "count,time"
+    let field = Field::new(fields[line].count + 1, dt, &fields[line].data);
     let write_str = field.to_string();
     let lengths = lines.iter().map(|x| x.len());
     let seek_begin = lengths.take(line).sum::<usize>() + line;
@@ -177,7 +172,7 @@ fn init_db(
     let mut db_file = File::create(db_filename)?;
 
     for line in raw_str.lines() {
-        let field = Field::new(0, dt, line.to_owned());
+        let field = Field::new(0, dt, line);
         writeln!(&mut db_file, "{}", field)?;
     }
 
@@ -219,7 +214,7 @@ fn update_db(
     let new_fields = raw_lines.iter()
         .map(|x| Box::new(db_lookup.get(x)
              .map(|&(_, field)| field.to_owned())
-             .unwrap_or_else(|| Field::new(0, dt, x.to_owned()))))
+             .unwrap_or_else(|| Field::new(0, dt, x))))
         .map(|x| *x)
         .collect::<Vec<_>>();
 
@@ -340,8 +335,4 @@ fn main() -> Result<()> {
 // TODO remame frece, update readme, put on AUR (bin, git), fix examples, continuous integration
 // TODO unit tests? doc strings?
 // TODO lock database file
-// TODO "Database" object?
-// TODO unnecessary collect before join?
-// TODO file::create automatically
-// TODO allow frecency weights to be tweaked?
-// TODO DbWriter: writes only invalidated entries? ...too complicated for a simple program, dude...
+// TODO Allow user to specify custom frecency weights
