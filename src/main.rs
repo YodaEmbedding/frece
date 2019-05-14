@@ -7,10 +7,12 @@ use chrono::{prelude::*, DateTime, NaiveDateTime};
 use clap::{App, Arg, SubCommand};
 use fs2::FileExt;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::fs::{self, File, OpenOptions};
 use std::io::{prelude::*, SeekFrom};
+use std::iter;
+use std::path::Path;
 use std::slice::Iter;
-use std::{fmt, iter};
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -206,6 +208,10 @@ fn update_db(
     dt: DateTime<Utc>,
     purge_old: bool,
 ) -> Result<()> {
+    if !Path::new(db_filename).exists() {
+        return init_db(raw_filename, db_filename, dt);
+    }
+
     let raw_str = fs::read_to_string(raw_filename)?;
     let (db_fields, _) = read_db(db_filename)?;
 
