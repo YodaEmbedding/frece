@@ -5,7 +5,7 @@ CARGO=cargo
 set -ex
 
 build() {
-    "$CARGO" build --target "$TARGET" --verbose
+    "$CARGO" build --target "$TARGET" --release
 
     # Output most recent build error
     set +x
