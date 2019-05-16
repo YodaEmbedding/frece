@@ -1,11 +1,21 @@
 #!/bin/bash
 
-root_dir=$(dirname "$0")"/.."
-path_index="$HOME/.emoji_index.txt"
-path_freq="$HOME/.emoji_frequent.txt"
-url="http://www.unicode.org/Public/emoji/11.0/emoji-test.txt"
+DIR=$(dirname "$0")"/.."
+FRECE="$DIR/target/release/frece"
+DB_FILE="$HOME/.frece_emoji.db"
+ENTRIES_FILE="/tmp/frece_emoji_entries.txt"
+CUSTOM_ENTRIES_FILE="$HOME/.frece_emoji_custom.txt"
+URL="http://www.unicode.org/Public/emoji/11.0/emoji-test.txt"
+export RUST_BACKTRACE=full
 
-curl -s "$url" | sed 's/^[^#]*; fully-qualified *# \([^ ]*\)/\1 \t/gp;d' > "$path_index.1"
+curl -s "$URL" | \
+    sed 's/^[^#]*; fully-qualified *# \([^ ]*\)/\1 \t/gp;d' > "$ENTRIES_FILE"
 
-"$root_dir/refresh_index.sh" "$path_index.1" "$path_freq"
-mv "$path_index.1" "$path_index"
+[ -f "$CUSTOM_ENTRIES_FILE" ] && cat "$CUSTOM_ENTRIES_FILE" >> "$ENTRIES_FILE"
+
+if [ ! -f "$DB_FILE" ]; then
+    "$FRECE" init "$DB_FILE" "$ENTRIES_FILE"
+    exit
+fi
+
+"$FRECE" update --purge-old "$DB_FILE" "$ENTRIES_FILE"

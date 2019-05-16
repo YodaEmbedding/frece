@@ -2,11 +2,10 @@
 
 DIR=$(dirname "$0")"/.."
 FRECE="$DIR/target/release/frece"
-DB_FILE="$HOME/.frece_emoji.db"
+DB_FILE="$HOME/.frece_file.db"
 
 "$FRECE" print "$DB_FILE" | \
     rofi "$@" -dmenu | \
     (read x; [[ -z $x ]] || (
-        emoji=$(cut -d$'\t' -f1 <<<"$x" | sed -e 's/[[:space:]]*$//')
-        echo -n "$emoji" | xclip -selection clipboard
+        gio open "$x"
         "$FRECE" increment "$DB_FILE" "$x"))

@@ -1,10 +1,11 @@
 #!/bin/bash
 
-root_dir=$(dirname "$0")"/.."
+DIR=$(dirname "$0")"/.."
+FRECE="$DIR/target/release/frece"
+DB_FILE="$HOME/.frece_dir.db"
 
-"$root_dir/list_index.sh" ~/.dir_index.txt ~/.dir_frequent.txt | \
+"$FRECE" print "$DB_FILE" | \
     rofi "$@" -dmenu | \
     (read x; [[ -z $x ]] || (
         gio open "$x"
-        "$root_dir/update_freq.sh" ~/.dir_frequent.txt "$x"
-        "$root_dir/update_index.sh" ~/.dir_index.txt ~/.dir_frequent.txt "$x"))
+        "$FRECE" increment "$DB_FILE" "$x"))

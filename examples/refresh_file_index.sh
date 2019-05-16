@@ -2,11 +2,11 @@
 
 DIR=$(dirname "$0")"/.."
 FRECE="$DIR/target/release/frece"
-DB_FILE="$HOME/.frece_dir.db"
-ENTRIES_FILE="/tmp/frece_dir_entries.txt"
+DB_FILE="$HOME/.frece_file.db"
+ENTRIES_FILE="/tmp/frece_file_entries.txt"
 export RUST_BACKTRACE=full
 
-find "$@" -path '*/\.*' -prune -o -not -name '.*' -type d -print | \
+find "$@" -path '*/\.*' -prune -o -not -name '.*' -type f -print | \
     sort > "$ENTRIES_FILE"
 
 if [ ! -f "$DB_FILE" ]; then
