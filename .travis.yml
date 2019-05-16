@@ -18,5 +18,6 @@ deploy:
   file: deploy/${PROJECT_NAME}-${TRAVIS_TAG}-${TARGET}.tar.gz
   on:
     branch: master
+    tags: true
   api_key:
     secure: PfxAnBDRJj7PIjnYOnx7RqzGVyXC3D2/e5znJWHeOaNLv7SEb0DuoP6Aj+BbGCuRMRbOEXgoY7EC33px7GBlb/TkPj/W/OL5U3n4QzGYPq1hu5D701ztYt32OSnruenUNimVz4t3aKpkCsmYAxT2DoAm/mAlwuzmEKw9ldbdk1uiSj3KZGYdo/0vGkincEDEk6HGrMHkLhLZNeE579jOZ/E1CyP7mTl8zvTbARz5DEuMialHMPUZcQ9SlBbf9b95ptkqGZCwkEf5J0wS+5cfg3exQISGSh1Om50XkimMz84TksEs06Fs04frmt7WJpkN6bHqk7N9tsiosvbUZeLqYNi2G/SUJUB1fRelnISknvUcwZbkby/6QGjRsaugRb/G1kVcnYVtXzUNjfm2B6mMlL3wYvncV3EYcYO5Rct9mrEwhdRFrtOvLeI+P6kqzmJVYna7N7Aqvbnd6ozThysMYliD3QLa7HQUJlkmxMDk7WvrPp+WuiyUDdbYdV2b8B5kmAN4vETbgHFNlKs7pfeDK3X0oG4SuChmPwjW2MgrZKBhYrdDeQHheesUmVNa1CW8KbyBY2FGJFE3w7gmux05hYkYR+Y7k9BNUdNSyVb+kfQEt0RacOd3I2hopN3Y6wk7Upv5PjRfQLAB/sO2PkJ7BhH9VNEakdLTiB8tAeaLX8U=
