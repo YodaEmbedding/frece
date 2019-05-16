@@ -24,6 +24,7 @@ make_tarball() {
     local temp_dir="$(mktemp -d)"
     local stage_dir="$temp_dir/$name"
     local out_dir="$(pwd)/deploy"
+    mkdir -p "$stage_dir"
     mkdir -p "$out_dir"
 
     cp "target/$TARGET/release/frece" "$stage_dir/"
