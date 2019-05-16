@@ -262,10 +262,10 @@ fn main() -> Result<()> {
     let matches = App::new("frece")
         .version("1.0")
         .author("Mateen Ulhaq <mulhaq2005@gmail.com>")
-        .about("Frecency indexed database manager.")
+        .about("Frecency indexed database")
         .subcommand(
             SubCommand::with_name("increment")
-                .about("Print frecency sorted entries")
+                .about("Increases an entry's count and resets its timer")
                 .arg(Arg::with_name("DB_FILE")
                      .help("Path to frecency database file")
                      .required(true)
@@ -276,7 +276,7 @@ fn main() -> Result<()> {
                      .index(2)))
         .subcommand(
             SubCommand::with_name("init")
-                .about("Create a database file from given entries file")
+                .about("Creates a database file from given list of entries")
                 .arg(Arg::with_name("DB_FILE")
                      .help("Path to frecency database file")
                      .required(true)
@@ -287,7 +287,7 @@ fn main() -> Result<()> {
                      .index(2)))
         .subcommand(
             SubCommand::with_name("print")
-                .about("Print frecency sorted entries")
+                .about("Prints list of frecency sorted entries")
                 .arg(Arg::with_name("DB_FILE")
                      .help("Path to frecency database file")
                      .required(true)
@@ -298,7 +298,7 @@ fn main() -> Result<()> {
                      .long("verbose")))
         .subcommand(
             SubCommand::with_name("update")
-                .about("Updates a database file from given entries file")
+                .about("Updates a database file from given list of entries")
                 .arg(Arg::with_name("DB_FILE")
                      .help("Path to frecency database file")
                      .required(true)
