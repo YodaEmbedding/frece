@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DIR=$(dirname "$0")"/.."
-FRECE="$DIR/target/release/frece"
+FRECE="frece"
 DB_FILE="$HOME/.frece_dir.db"
 
 "$FRECE" print "$DB_FILE" | \

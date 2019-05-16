@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DIR=$(dirname "$0")"/.."
-FRECE="$DIR/target/release/frece"
+FRECE="frece"
 DB_FILE="$HOME/.frece_file.db"
 ENTRIES_FILE="/tmp/frece_file_entries.txt"
 export RUST_BACKTRACE=full

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DIR=$(dirname "$0")"/.."
-FRECE="$DIR/target/release/frece"
+FRECE="frece"
 DB_FILE="$HOME/.frece_emoji.db"
 ENTRIES_FILE="/tmp/frece_emoji_entries.txt"
 CUSTOM_ENTRIES_FILE="$HOME/.frece_emoji_custom.txt"
