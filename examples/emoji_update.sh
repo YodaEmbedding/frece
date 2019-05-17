@@ -15,7 +15,6 @@ curl -s "$URL" | \
 
 if [ ! -f "$DB_FILE" ]; then
     "$FRECE" init "$DB_FILE" "$ENTRIES_FILE"
-    exit
+else
+    "$FRECE" update "$DB_FILE" "$ENTRIES_FILE" --purge-old
 fi
-
-"$FRECE" update --purge-old "$DB_FILE" "$ENTRIES_FILE"
