@@ -7,7 +7,7 @@ Maintain a database sorted by [frecency](https://en.wikipedia.org/wiki/Frecency)
 
 Simply [download the latest release](https://github.com/SicariusNoctis/frece/releases) and add the `frece` executable to `PATH`.
 
-Arch users may install from the AUR packages [`frece-bin`](https://aur.archlinux.org/packages/frece-bin) or [`frece-git`](https://aur.archlinux.org/packages/frece-git).
+Arch Linux users may install from the AUR packages [`frece`](https://aur.archlinux.org/packages/frece) or [`frece-git`](https://aur.archlinux.org/packages/frece-git).
 
 ## Usage
 
