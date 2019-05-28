@@ -9,10 +9,9 @@ use fs2::FileExt;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
-use std::io::{prelude::*, SeekFrom};
+use std::io::{prelude::*, BufWriter, SeekFrom, stdout};
 use std::iter;
 use std::path::Path;
-use std::slice::Iter;
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -28,11 +27,6 @@ trait FieldSlice {
     fn sort_by_data(&mut self);
 }
 
-trait FieldIterator {
-    fn to_data_str(self) -> String;
-    fn to_info_str(self, dt: DateTime<Utc>) -> String;
-}
-
 impl Field {
     pub fn new(count: i64, time: DateTime<Utc>, data: &str) -> Self {
         Self { count, time, data: data.to_owned() }
@@ -41,6 +35,15 @@ impl Field {
     pub fn frecency(&self, dt: &DateTime<Utc>) -> i64 {
         let secs = dt.signed_duration_since(self.time).num_seconds();
         (1e15 * frecency(self.count, secs)) as i64
+    }
+
+    pub fn to_info_str(&self, dt: DateTime<Utc>) -> String {
+        let secs = dt.signed_duration_since(self.time).num_seconds();
+        format!("{:.6}  {:6}  {:25}  {}",
+                frecency(self.count, secs),
+                self.count,
+                self.time.to_rfc3339_opts(SecondsFormat::Secs, false),
+                self.data)
     }
 }
 
@@ -61,29 +64,6 @@ impl FieldSlice for [Field] {
     fn sort_by_data(&mut self) {
         // self.sort_by_cached_key(|x| x.data);
         self.sort_by(|x, y| x.data.cmp(&y.data));
-    }
-}
-
-impl<'a> FieldIterator for Iter<'a, Field> {
-    fn to_data_str(self) -> String {
-        self
-            .map(|x| x.data.as_ref())
-            .collect::<Vec<&str>>()
-            .join("\n")
-    }
-
-    fn to_info_str(self, dt: DateTime<Utc>) -> String {
-        self
-            .map(|field| {
-                let secs = dt.signed_duration_since(field.time).num_seconds();
-                format!("{:.6}  {:6}  {:25}  {}",
-                        frecency(field.count, secs),
-                        field.count,
-                        field.time.to_rfc3339_opts(SecondsFormat::Secs, false),
-                        field.data)
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
     }
 }
 
@@ -331,11 +311,15 @@ fn main() -> Result<()> {
         let (mut fields, _lines) = read_db(db_filename)?;
         fields.sort_by_frecency(now);
 
-        if verbose {
-            println!("{}", fields.iter().to_info_str(now));
-        }
-        else {
-            println!("{}", fields.iter().to_data_str());
+        let stdout = stdout();
+        let lock = stdout.lock();
+        let mut w = BufWriter::new(lock);
+        let to_str = |field: Field|
+            if verbose { field.to_info_str(now) }
+            else { field.data };
+
+        for field in fields {
+            writeln!(w, "{}", to_str(field))?;
         }
     }
 
@@ -349,9 +333,15 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-// TODO remame frece, update readme, put on AUR (bin, git), fix examples, continuous integration
 // TODO unit tests? doc strings?
 // TODO Allow user to specify custom frecency weights
-// TODO Improve I/O speed: remove line-buffering?
 // TODO --no-header flag for --verbose? or just header by default?
 // TODO --null-delimiter (avoids errors with Linux file paths...)
+// TODO escape \\ and \n? Or at least, warn on input containing newlines; also watch out for \r\n behavior with lines(); try .split("\n")?
+// TODO exception on duplicate entries in raw_lines?
+// TODO Fast write to stdout/pipe
+// https://codereview.stackexchange.com/questions/73753/how-can-i-find-out-why-this-rust-program-to-echo-lines-from-stdin-is-slow
+// https://www.reddit.com/r/rust/comments/5puyx2/why_is_println_so_slow/dcu2lf0
+// https://www.reddit.com/r/rust/comments/94roxv/how_to_print_files_to_stdout_fast
+// https://www.reddit.com/r/rust/comments/ab9b3z/locking_stdout_once_and_writing_to_it_versus
+// fastcat https://matthias-endler.de/2018/fastcat/
