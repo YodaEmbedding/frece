@@ -225,13 +225,11 @@ fn write_fields(
         .write(true)
         .open(&tmp_filename)?;
 
-    // TODO no point in locking... better to write to a unique file/directory
-    tmp_file.lock_exclusive()?;
     for field in fields {
         writeln!(&mut tmp_file, "{}", field)?;
     }
-    tmp_file.unlock()?;
 
+    drop(tmp_file);
     fs::rename(tmp_filename, filename)?;
     Ok(())
 }
