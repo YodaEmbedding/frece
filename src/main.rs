@@ -79,6 +79,31 @@ fn frecency(count: i64, secs: i64) -> f64 {
     1.0 / (1.0 + (-x).exp())
 }
 
+fn update_fields(
+    raw_lines: &[String],
+    db_fields: &[Field],
+    dt: DateTime<Utc>,
+    purge_old: bool
+) -> Vec<Field> {
+    let db_lookup = db_fields.iter()
+        .enumerate()
+        .map(|(i, x)| (&x.data, (i, x)))
+        .collect::<HashMap<_, _>>();
+
+    let new_fields = raw_lines.iter()
+        .map(|x| db_lookup.get(x)
+             .map(|&(_, field)| field.to_owned())
+             .unwrap_or_else(|| Field::new(0, dt, x)));
+
+    let old_fields: Box<Iterator<Item = &Field>> = match purge_old {
+        true  => Box::new(iter::empty::<&Field>()),
+        false => Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup)),
+    };
+    let old_fields = old_fields.map(|x| x.to_owned());
+
+    new_fields.chain(old_fields).collect()
+}
+
 fn get_old_fields<'a>(
     raw_lines: &[String],
     db_fields: &[Field],
@@ -195,24 +220,7 @@ fn update_db(
         .map(|x| x.to_owned())
         .collect::<Vec<String>>();
 
-    let db_lookup = db_fields.iter()
-        .enumerate()
-        .map(|(i, x)| (&x.data, (i, x)))
-        .collect::<HashMap<_, _>>();
-
-    let new_fields = raw_lines.iter()
-        .map(|x| Box::new(db_lookup.get(x)
-             .map(|&(_, field)| field.to_owned())
-             .unwrap_or_else(|| Field::new(0, dt, x))))
-        .map(|x| *x)
-        .collect::<Vec<_>>();
-
-    let old_fields: Box<Iterator<Item = &Field>> = match purge_old {
-        true  => Box::new(iter::empty::<&Field>()),
-        false => Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup)),
-    };
-
-    let fields = new_fields.iter().chain(old_fields);
+    let fields = update_fields(&raw_lines, &db_fields, dt, purge_old);
 
     let mut db_file = OpenOptions::new()
         .create(true)
@@ -349,6 +357,8 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
+// TODO lock correct file; or lock earlier... currently, there may be race in which tmp files are created; move "write_atomic" into respective functions
 
 // TODO unit tests? doc strings?
 // TODO Allow user to specify custom frecency weights
