@@ -183,17 +183,13 @@ fn read_db(db_filename: &str) -> Result<(Vec<Field>, Vec<String>)> {
 }
 
 fn update_db(
+    db_fields: &[Field],
     raw_filename: &str,
     db_filename: &str,
     dt: DateTime<Utc>,
     purge_old: bool,
 ) -> Result<()> {
-    if !Path::new(db_filename).exists() {
-        return init_db(raw_filename, db_filename, dt);
-    }
-
     let raw_str = fs::read_to_string(raw_filename)?;
-    let (db_fields, _) = read_db(db_filename)?;
 
     let raw_lines = raw_str.lines()
         .map(|x| x.to_owned())
@@ -219,8 +215,8 @@ fn update_db(
     let fields = new_fields.iter().chain(old_fields);
 
     let mut db_file = OpenOptions::new()
+        .create(true)
         .write(true)
-        .truncate(true)
         .open(db_filename)?;
 
     db_file.lock_exclusive()?;
@@ -231,6 +227,16 @@ fn update_db(
 
     db_file.unlock()?;
 
+    Ok(())
+}
+
+fn write_atomic(
+    filename: &str,
+    func: impl Fn(&str) -> Result<()>
+) -> Result<()> {
+    let tmp_filename = format!("{}{}", filename, ".tmp");
+    func(&tmp_filename)?;
+    fs::rename(tmp_filename, filename)?;
     Ok(())
 }
 
@@ -302,7 +308,9 @@ fn main() -> Result<()> {
         let db_filename  = matches.value_of("DB_FILE").unwrap();
         let entry        = matches.value_of("ENTRY").unwrap();
         let (fields, lines) = read_db(db_filename)?;
-        increment_db(&fields, &lines, now, db_filename, entry)?;
+        write_atomic(
+            db_filename,
+            |x| increment_db(&fields, &lines, now, x, entry))?;
     }
 
     if let Some(matches) = matches.subcommand_matches("print") {
@@ -327,7 +335,16 @@ fn main() -> Result<()> {
         let db_filename  = matches.value_of("DB_FILE").unwrap();
         let raw_filename = matches.value_of("ENTRY_FILE").unwrap();
         let purge_old    = matches.is_present("purge-old");
-        update_db(raw_filename, db_filename, epoch, purge_old)?;
+
+        if !Path::new(db_filename).exists() {
+            init_db(raw_filename, db_filename, epoch)?;
+        }
+        else {
+            let (fields, _lines) = read_db(db_filename)?;
+            write_atomic(
+                db_filename,
+                |x| update_db(&fields, raw_filename, x, epoch, purge_old))?;
+        }
     }
 
     Ok(())
