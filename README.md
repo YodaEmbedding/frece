@@ -4,11 +4,10 @@
 Maintain a database sorted by [frecency](https://en.wikipedia.org/wiki/Frecency) (frequency + recency).
 
 - [Installation](#installation)
-- [Usage](#usage)
-  * [Commands](#commands)
-  * [Examples](#examples)
-    + [General](#general)
-    + [Rofi](#rofi)
+- [Commands](#commands)
+- [Examples](#examples)
+  * [General](#general)
+  * [Rofi](#rofi)
 
 ## Installation
 
@@ -16,9 +15,7 @@ Simply [download the latest release](https://github.com/SicariusNoctis/frece/rel
 
 Arch Linux users may install from the AUR packages [`frece`](https://aur.archlinux.org/packages/frece) or [`frece-git`](https://aur.archlinux.org/packages/frece-git).
 
-## Usage
-
-### Commands
+## Commands
 
 `frece` provides the following subcommands:
 
@@ -31,9 +28,9 @@ update       Updates a database file from given list of entries
 
 See `frece --help` or the [`Examples`](#examples) section for more information.
 
-### Examples
+## Examples
 
-#### General
+### General
 
 Begin by creating a database:
 
@@ -84,7 +81,7 @@ frecency   count  last access date           item
 0.000000       0  1970-01-01T00:00:00+00:00  grapefruit
 ```
 
-#### Rofi
+### Rofi
 
 The following examples may be found in the [`examples`](examples) directory:
 
