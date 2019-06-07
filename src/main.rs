@@ -242,7 +242,7 @@ fn main() -> Result<()> {
     let now = Utc::now();
 
     let matches = App::new("frece")
-        .version("1.0")
+        .version("1.0.2")
         .author("Mateen Ulhaq <mulhaq2005@gmail.com>")
         .about("Frecency indexed database")
         .subcommand(
