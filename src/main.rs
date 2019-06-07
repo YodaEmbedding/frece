@@ -8,7 +8,7 @@ use clap::{App, Arg, SubCommand};
 use fs2::FileExt;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::{prelude::*, BufWriter, SeekFrom, stdout};
 use std::iter;
 use std::path::Path;
@@ -160,12 +160,12 @@ fn increment_db(
     let lengths = lines.iter().map(|x| x.len());
     let seek_begin = lengths.take(line).sum::<usize>() + line;
     let seek_end = seek_begin + lines[line].len() + 1;
+    assert!(write_str.len() == seek_end - seek_begin - 1);
 
     let mut db_file = OpenOptions::new()
         .write(true)
         .open(db_filename)?;
 
-    assert!(write_str.len() == seek_end - seek_begin - 1);
     db_file.lock_exclusive()?;
     db_file.seek(SeekFrom::Start(seek_begin as u64))?;
     db_file.write_all(write_str.as_bytes())?;
@@ -180,16 +180,8 @@ fn init_db(
     dt: DateTime<Utc>
 ) -> Result<()> {
     let raw_str = fs::read_to_string(raw_filename)?;
-    let mut db_file = File::create(db_filename)?;
-    db_file.lock_exclusive()?;
-
-    for line in raw_str.lines() {
-        let field = Field::new(0, dt, line);
-        writeln!(&mut db_file, "{}", field)?;
-    }
-
-    db_file.unlock()?;
-
+    let fields = raw_str.lines().map(|line| Field::new(0, dt, line));
+    write_fields(fields, db_filename)?;
     Ok(())
 }
 
@@ -215,35 +207,31 @@ fn update_db(
     purge_old: bool,
 ) -> Result<()> {
     let raw_str = fs::read_to_string(raw_filename)?;
-
     let raw_lines = raw_str.lines()
         .map(|x| x.to_owned())
         .collect::<Vec<String>>();
-
     let fields = update_fields(&raw_lines, &db_fields, dt, purge_old);
-
-    let mut db_file = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .open(db_filename)?;
-
-    db_file.lock_exclusive()?;
-
-    for field in fields {
-        writeln!(&mut db_file, "{}", field)?;
-    }
-
-    db_file.unlock()?;
-
+    write_fields(fields.into_iter(), db_filename)?;
     Ok(())
 }
 
-fn write_atomic(
-    filename: &str,
-    func: impl Fn(&str) -> Result<()>
+fn write_fields(
+    fields: impl Iterator<Item = Field>,
+    filename: &str
 ) -> Result<()> {
     let tmp_filename = format!("{}{}", filename, ".tmp");
-    func(&tmp_filename)?;
+    let mut tmp_file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&tmp_filename)?;
+
+    // TODO no point in locking... better to write to a unique file/directory
+    tmp_file.lock_exclusive()?;
+    for field in fields {
+        writeln!(&mut tmp_file, "{}", field)?;
+    }
+    tmp_file.unlock()?;
+
     fs::rename(tmp_filename, filename)?;
     Ok(())
 }
@@ -316,9 +304,7 @@ fn main() -> Result<()> {
         let db_filename  = matches.value_of("DB_FILE").unwrap();
         let entry        = matches.value_of("ENTRY").unwrap();
         let (fields, lines) = read_db(db_filename)?;
-        write_atomic(
-            db_filename,
-            |x| increment_db(&fields, &lines, now, x, entry))?;
+        increment_db(&fields, &lines, now, db_filename, entry)?;
     }
 
     if let Some(matches) = matches.subcommand_matches("print") {
@@ -349,16 +335,12 @@ fn main() -> Result<()> {
         }
         else {
             let (fields, _lines) = read_db(db_filename)?;
-            write_atomic(
-                db_filename,
-                |x| update_db(&fields, raw_filename, x, epoch, purge_old))?;
+            update_db(&fields, raw_filename, db_filename, epoch, purge_old)?;
         }
     }
 
     Ok(())
 }
-
-// TODO lock correct file; or lock earlier... currently, there may be race in which tmp files are created; move "write_atomic" into respective functions
 
 // TODO unit tests? doc strings?
 // TODO Allow user to specify custom frecency weights
