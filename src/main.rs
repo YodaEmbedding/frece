@@ -220,15 +220,17 @@ fn write_fields(
     filename: &str
 ) -> Result<()> {
     let tmp_filename = format!("{}{}", filename, ".tmp");
-    let mut tmp_file = OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(&tmp_filename)?;
+    let mut tmp_file = BufWriter::new(
+        OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&tmp_filename)?);
 
     for field in fields {
         writeln!(&mut tmp_file, "{}", field)?;
     }
 
+    tmp_file.flush()?;
     drop(tmp_file);
     fs::rename(tmp_filename, filename)?;
     Ok(())
