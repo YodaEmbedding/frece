@@ -3,6 +3,13 @@
 
 Maintain a database sorted by [frecency](https://en.wikipedia.org/wiki/Frecency) (frequency + recency).
 
+- [Installation](#installation)
+- [Usage](#usage)
+  * [Commands](#commands)
+  * [Examples](#examples)
+    + [General](#general)
+    + [Rofi](#rofi)
+
 ## Installation
 
 Simply [download the latest release](https://github.com/SicariusNoctis/frece/releases) and add the `frece` executable to `PATH`.
