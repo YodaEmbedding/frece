@@ -23,8 +23,10 @@ struct Field {
 }
 
 trait FieldSlice {
-    fn sort_by_frecency(&mut self, dt: DateTime<Utc>);
     fn sort_by_data(&mut self);
+    fn sort_by_frecency(&mut self, dt: DateTime<Utc>);
+    fn sort_by_frequency(&mut self);
+    fn sort_by_recency(&mut self);
 }
 
 impl Field {
@@ -57,13 +59,21 @@ impl fmt::Display for Field {
 }
 
 impl FieldSlice for [Field] {
-    fn sort_by_frecency(&mut self, dt: DateTime<Utc>) {
-        self.sort_by_cached_key(|x| -x.frecency(&dt));
-    }
-
     fn sort_by_data(&mut self) {
         // self.sort_by_cached_key(|x| x.data);
         self.sort_by(|x, y| x.data.cmp(&y.data));
+    }
+
+    fn sort_by_frecency(&mut self, dt: DateTime<Utc>) {
+        self.sort_by_cached_key(|x| std::cmp::Reverse(x.frecency(&dt)));
+    }
+
+    fn sort_by_frequency(&mut self) {
+        self.sort_by_cached_key(|x| std::cmp::Reverse(x.count));
+    }
+
+    fn sort_by_recency(&mut self) {
+        self.sort_by_cached_key(|x| std::cmp::Reverse(x.time));
     }
 }
 
@@ -274,6 +284,14 @@ fn main() -> Result<()> {
                     .help("Path to frecency database file")
                     .required(true)
                     .index(1))
+                .arg(Arg::with_name("sort")
+                    .help("Sort by frecency (default), frequency, recency, \
+                        alphabetical, or none")
+                    .long("sort")
+                    .takes_value(true)
+                    .default_value("frecency")
+                    .possible_values(&["frecency", "frequency", "recency",
+                        "alphabetical", "none"]))
                 .arg(Arg::with_name("verbose")
                     .help("Outputs frecency, counts, date, and entries")
                     .short("v")
@@ -309,9 +327,18 @@ fn main() -> Result<()> {
 
     if let Some(matches) = matches.subcommand_matches("print") {
         let db_filename  = matches.value_of("DB_FILE").unwrap();
+        let sort_method  = matches.value_of("sort").unwrap();
         let verbose      = matches.is_present("verbose");
         let (mut fields, _lines) = read_db(db_filename)?;
-        fields.sort_by_frecency(now);
+
+        match sort_method {
+            "alphabetical" => fields.sort_by_data(),
+            "frecency"     => fields.sort_by_frecency(now),
+            "frequency"    => fields.sort_by_frequency(),
+            "recency"      => fields.sort_by_recency(),
+            "none"         => {},
+            _ => return Err(failure::err_msg("Unrecognized sort method"))
+        }
 
         let stdout = stdout();
         let lock = stdout.lock();
