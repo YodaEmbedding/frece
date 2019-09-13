@@ -77,6 +77,11 @@ impl FieldSlice for [Field] {
     }
 }
 
+/// Calculate frecency.
+///
+/// Linear combination of logarithmically weighted `counts` and `secs`.
+/// Normalizes with a sigmoid to ensure frecency is constrained to the
+/// interval [0, 1].
 fn frecency(count: i64, secs: i64) -> f64 {
     if count == 0 {
         return 0.0;
@@ -89,6 +94,14 @@ fn frecency(count: i64, secs: i64) -> f64 {
     1.0 / (1.0 + (-x).exp())
 }
 
+/// Update list of fields with new entries.
+///
+/// Returns list of fields with values specified by `raw_lines`, using
+/// fields from `db_fields` if their values matche, and otherwise
+/// creating new fields with time `dt`. The order of the list
+/// corresponds to the order of values within `raw_lines`. If
+/// `purge_old` is `false`, the entries from `db_fields` that are not in
+/// `raw_lines` are appended to the list, in their original order.
 fn update_fields(
     raw_lines: &[String],
     db_fields: &[Field],
@@ -114,6 +127,13 @@ fn update_fields(
     new_fields.chain(old_fields).collect()
 }
 
+/// Filter `db_fields` by `raw_lines`.
+///
+/// Returns new list containing fields in `db_fields` that do not match
+/// any of the values in `raw_lines`. List is returned in the ordering
+/// specified by `db_lookup`. Note that `db_lookup` must contain a valid
+/// mapping from `&String` to all `Field`s within `db_fields` paired
+/// with a uniquely ordered key for sorting.
 fn get_old_fields<'a>(
     raw_lines: &[String],
     db_fields: &[Field],
@@ -155,6 +175,9 @@ fn parse_line(line: &str) -> Result<Field> {
     Ok(Field::new(count, time, data))
 }
 
+/// Increment specified database entry.
+///
+/// Increments total access count and sets last access time of entry.
 fn increment_db(
     fields: &[Field],
     lines: &[String],
@@ -184,6 +207,7 @@ fn increment_db(
     Ok(())
 }
 
+/// Initializes database using given list of entries.
 fn init_db(
     raw_filename: &str,
     db_filename: &str,
@@ -195,6 +219,7 @@ fn init_db(
     Ok(())
 }
 
+/// Get list of all fields from database.
 fn read_db(db_filename: &str) -> Result<(Vec<Field>, Vec<String>)> {
     let db_str = fs::read_to_string(db_filename)?;
 
@@ -209,6 +234,7 @@ fn read_db(db_filename: &str) -> Result<(Vec<Field>, Vec<String>)> {
     Ok((fields, lines))
 }
 
+/// Update database with list of entries.
 fn update_db(
     db_fields: &[Field],
     raw_filename: &str,
@@ -225,6 +251,7 @@ fn update_db(
     Ok(())
 }
 
+/// Write fields to new database.
 fn write_fields(
     fields: impl Iterator<Item = Field>,
     filename: &str
@@ -368,13 +395,13 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-// TODO unit tests? doc strings?
-// TODO Allow user to specify custom frecency weights
-// TODO --no-header flag for --verbose? or just header by default?
+// TODO Unit tests
+// TODO --recency-weight and --frequency-weight
 // TODO --null-delimiter (avoids errors with Linux file paths...)
-// TODO escape \\ and \n? Or at least, warn on input containing newlines; also watch out for \r\n behavior with lines(); try .split("\n")?
-// TODO exception on duplicate entries in raw_lines?
-// TODO Fast write to stdout/pipe
+// TODO Options for escaping \n and \\? Or perhaps store string length headers.
+// TODO Exception on duplicate entries in raw_lines. (Or silently filter.)
+// TODO CPU: Vectorized frecency computations.
+// TODO IO: Fast write to stdout/pipe.
 // https://codereview.stackexchange.com/questions/73753/how-can-i-find-out-why-this-rust-program-to-echo-lines-from-stdin-is-slow
 // https://www.reddit.com/r/rust/comments/5puyx2/why_is_println_so_slow/dcu2lf0
 // https://www.reddit.com/r/rust/comments/94roxv/how_to_print_files_to_stdout_fast
