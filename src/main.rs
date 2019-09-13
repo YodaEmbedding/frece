@@ -285,13 +285,12 @@ fn main() -> Result<()> {
                     .required(true)
                     .index(1))
                 .arg(Arg::with_name("sort")
-                    .help("Sort by frecency (default), frequency, recency, \
-                        alphabetical, or none")
+                    .help("Sort method")
                     .long("sort")
                     .takes_value(true)
                     .default_value("frecency")
-                    .possible_values(&["frecency", "frequency", "recency",
-                        "alphabetical", "none"]))
+                    .possible_values(&["none", "alphabetical", "frecency",
+                        "frequency", "recency"]))
                 .arg(Arg::with_name("verbose")
                     .help("Outputs frecency, counts, date, and entries")
                     .short("v")
