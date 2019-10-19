@@ -9,7 +9,7 @@ use fs2::FileExt;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::{self, OpenOptions};
-use std::io::{prelude::*, BufWriter, SeekFrom, stdout};
+use std::io::{prelude::*, stdout, BufWriter, SeekFrom};
 use std::iter;
 use std::path::Path;
 
@@ -19,7 +19,7 @@ type Result<T> = std::result::Result<T, failure::Error>;
 struct Field {
     count: i64,
     time: DateTime<Utc>,
-    data: String
+    data: String,
 }
 
 trait FieldSlice {
@@ -31,7 +31,11 @@ trait FieldSlice {
 
 impl Field {
     pub fn new(count: i64, time: DateTime<Utc>, data: &str) -> Self {
-        Self { count, time, data: data.to_owned() }
+        Self {
+            count,
+            time,
+            data: data.to_owned(),
+        }
     }
 
     pub fn frecency(&self, dt: &DateTime<Utc>) -> i64 {
@@ -41,20 +45,25 @@ impl Field {
 
     pub fn to_info_str(&self, dt: DateTime<Utc>) -> String {
         let secs = dt.signed_duration_since(self.time).num_seconds();
-        format!("{:.6}  {:6}  {:25}  {}",
-                frecency(self.count, secs),
-                self.count,
-                self.time.to_rfc3339_opts(SecondsFormat::Secs, false),
-                self.data)
+        format!(
+            "{:.6}  {:6}  {:25}  {}",
+            frecency(self.count, secs),
+            self.count,
+            self.time.to_rfc3339_opts(SecondsFormat::Secs, false),
+            self.data
+        )
     }
 }
 
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:06},{},{}",
-               self.count,
-               self.time.to_rfc3339_opts(SecondsFormat::Micros, false),
-               self.data)
+        write!(
+            f,
+            "{:06},{},{}",
+            self.count,
+            self.time.to_rfc3339_opts(SecondsFormat::Micros, false),
+            self.data
+        )
     }
 }
 
@@ -87,9 +96,7 @@ fn frecency(count: i64, secs: i64) -> f64 {
         return 0.0;
     }
 
-    let x = 0.0
-        + 0.75 * (1.0 + count as f64).ln()
-        - 0.25 * (1.0 + secs  as f64).ln();
+    let x = 0.0 + 0.75 * (1.0 + count as f64).ln() - 0.25 * (1.0 + secs as f64).ln();
 
     1.0 / (1.0 + (-x).exp())
 }
@@ -106,20 +113,23 @@ fn update_fields(
     raw_lines: &[String],
     db_fields: &[Field],
     dt: DateTime<Utc>,
-    purge_old: bool
+    purge_old: bool,
 ) -> Vec<Field> {
-    let db_lookup = db_fields.iter()
+    let db_lookup = db_fields
+        .iter()
         .enumerate()
         .map(|(i, x)| (&x.data, (i, x)))
         .collect::<HashMap<_, _>>();
 
-    let new_fields = raw_lines.iter()
-        .map(|x| db_lookup.get(x)
-             .map(|&(_, field)| field.to_owned())
-             .unwrap_or_else(|| Field::new(0, dt, x)));
+    let new_fields = raw_lines.iter().map(|x| {
+        db_lookup
+            .get(x)
+            .map(|&(_, field)| field.to_owned())
+            .unwrap_or_else(|| Field::new(0, dt, x))
+    });
 
     let old_fields: Box<Iterator<Item = &Field>> = match purge_old {
-        true  => Box::new(iter::empty::<&Field>()),
+        true => Box::new(iter::empty::<&Field>()),
         false => Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup)),
     };
     let old_fields = old_fields.map(|x| x.to_owned());
@@ -140,10 +150,10 @@ fn get_old_fields<'a>(
     db_lookup: &HashMap<&String, (usize, &'a Field)>,
 ) -> impl Iterator<Item = &'a Field> {
     let old_set = {
-        let raw_set = raw_lines.iter()
-            .collect::<HashSet<&String>>();
+        let raw_set = raw_lines.iter().collect::<HashSet<&String>>();
 
-        let db_set = db_fields.iter()
+        let db_set = db_fields
+            .iter()
             .map(|x| &x.data)
             .collect::<HashSet<&String>>();
 
@@ -153,7 +163,8 @@ fn get_old_fields<'a>(
             .collect::<HashSet<&String>>()
     };
 
-    let mut old_fields = old_set.into_iter()
+    let mut old_fields = old_set
+        .into_iter()
         .map(|x| db_lookup[x])
         .collect::<Vec<_>>();
 
@@ -166,7 +177,7 @@ fn parse_line(line: &str) -> Result<Field> {
 
     let [count_str, time_str, data] = match split[0..3] {
         [x, y, z] => [x, y, z],
-        _ => return Err(failure::err_msg("Insufficient entries"))
+        _ => return Err(failure::err_msg("Insufficient entries")),
     };
 
     let time = DateTime::parse_from_rfc3339(&time_str)?.with_timezone(&Utc);
@@ -185,7 +196,9 @@ fn increment_db(
     db_filename: &str,
     entry: &str,
 ) -> Result<()> {
-    let line = fields.iter().position(|x| x.data == entry)
+    let line = fields
+        .iter()
+        .position(|x| x.data == entry)
         .ok_or(failure::err_msg("Entry not found in database"))?;
 
     let field = Field::new(fields[line].count + 1, dt, &fields[line].data);
@@ -195,9 +208,7 @@ fn increment_db(
     let seek_end = seek_begin + lines[line].len() + 1;
     assert!(write_str.len() == seek_end - seek_begin - 1);
 
-    let mut db_file = OpenOptions::new()
-        .write(true)
-        .open(db_filename)?;
+    let mut db_file = OpenOptions::new().write(true).open(db_filename)?;
 
     db_file.lock_exclusive()?;
     db_file.seek(SeekFrom::Start(seek_begin as u64))?;
@@ -208,11 +219,7 @@ fn increment_db(
 }
 
 /// Initializes database using given list of entries.
-fn init_db(
-    raw_filename: &str,
-    db_filename: &str,
-    dt: DateTime<Utc>
-) -> Result<()> {
+fn init_db(raw_filename: &str, db_filename: &str, dt: DateTime<Utc>) -> Result<()> {
     let raw_str = fs::read_to_string(raw_filename)?;
     let fields = raw_str.lines().map(|line| Field::new(0, dt, line));
     write_fields(fields, db_filename)?;
@@ -223,11 +230,13 @@ fn init_db(
 fn read_db(db_filename: &str) -> Result<(Vec<Field>, Vec<String>)> {
     let db_str = fs::read_to_string(db_filename)?;
 
-    let lines = db_str.lines()
+    let lines = db_str
+        .lines()
         .map(|x| x.to_owned())
         .collect::<Vec<String>>();
 
-    let fields = lines.iter()
+    let fields = lines
+        .iter()
         .map(|x| parse_line(&x))
         .collect::<Result<Vec<Field>>>()?;
 
@@ -243,7 +252,8 @@ fn update_db(
     purge_old: bool,
 ) -> Result<()> {
     let raw_str = fs::read_to_string(raw_filename)?;
-    let raw_lines = raw_str.lines()
+    let raw_lines = raw_str
+        .lines()
         .map(|x| x.to_owned())
         .collect::<Vec<String>>();
     let fields = update_fields(&raw_lines, &db_fields, dt, purge_old);
@@ -252,16 +262,14 @@ fn update_db(
 }
 
 /// Write fields to new database.
-fn write_fields(
-    fields: impl Iterator<Item = Field>,
-    filename: &str
-) -> Result<()> {
+fn write_fields(fields: impl Iterator<Item = Field>, filename: &str) -> Result<()> {
     let tmp_filename = format!("{}{}", filename, ".tmp");
     let mut tmp_file = BufWriter::new(
         OpenOptions::new()
             .create_new(true)
             .write(true)
-            .open(&tmp_filename)?);
+            .open(&tmp_filename)?,
+    );
 
     for field in fields {
         writeln!(&mut tmp_file, "{}", field)?;
@@ -274,8 +282,7 @@ fn write_fields(
 }
 
 fn main() -> Result<()> {
-    let epoch = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(0, 0), Utc);
+    let epoch = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(0, 0), Utc);
     let now = Utc::now();
 
     let matches = App::new("frece")
@@ -285,93 +292,126 @@ fn main() -> Result<()> {
         .subcommand(
             SubCommand::with_name("increment")
                 .about("Increases an entry's count and resets its timer")
-                .arg(Arg::with_name("DB_FILE")
-                    .help("Path to frecency database file")
-                    .required(true)
-                    .index(1))
-                .arg(Arg::with_name("ENTRY")
-                    .help("Entry to increment")
-                    .required(true)
-                    .index(2)))
+                .arg(
+                    Arg::with_name("DB_FILE")
+                        .help("Path to frecency database file")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("ENTRY")
+                        .help("Entry to increment")
+                        .required(true)
+                        .index(2),
+                ),
+        )
         .subcommand(
             SubCommand::with_name("init")
                 .about("Creates a database file from given list of entries")
-                .arg(Arg::with_name("DB_FILE")
-                    .help("Path to frecency database file")
-                    .required(true)
-                    .index(1))
-                .arg(Arg::with_name("ENTRY_FILE")
-                    .help("Path to list of entries, separated by newlines")
-                    .required(true)
-                    .index(2)))
+                .arg(
+                    Arg::with_name("DB_FILE")
+                        .help("Path to frecency database file")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("ENTRY_FILE")
+                        .help("Path to list of entries, separated by newlines")
+                        .required(true)
+                        .index(2),
+                ),
+        )
         .subcommand(
             SubCommand::with_name("print")
                 .about("Prints list of frecency sorted entries")
-                .arg(Arg::with_name("DB_FILE")
-                    .help("Path to frecency database file")
-                    .required(true)
-                    .index(1))
-                .arg(Arg::with_name("sort")
-                    .help("Sort method")
-                    .long("sort")
-                    .takes_value(true)
-                    .default_value("frecency")
-                    .possible_values(&["none", "alphabetical", "frecency",
-                        "frequency", "recency"]))
-                .arg(Arg::with_name("verbose")
-                    .help("Outputs frecency, counts, date, and entries")
-                    .short("v")
-                    .long("verbose")))
+                .arg(
+                    Arg::with_name("DB_FILE")
+                        .help("Path to frecency database file")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("sort")
+                        .help("Sort method")
+                        .long("sort")
+                        .takes_value(true)
+                        .default_value("frecency")
+                        .possible_values(&[
+                            "none",
+                            "alphabetical",
+                            "frecency",
+                            "frequency",
+                            "recency",
+                        ]),
+                )
+                .arg(
+                    Arg::with_name("verbose")
+                        .help("Outputs frecency, counts, date, and entries")
+                        .short("v")
+                        .long("verbose"),
+                ),
+        )
         .subcommand(
             SubCommand::with_name("update")
                 .about("Updates a database file from given list of entries")
-                .arg(Arg::with_name("DB_FILE")
-                    .help("Path to frecency database file")
-                    .required(true)
-                    .index(1))
-                .arg(Arg::with_name("ENTRY_FILE")
-                    .help("Path to list of entries, separated by newlines")
-                    .required(true)
-                    .index(2))
-                .arg(Arg::with_name("purge-old")
-                    .help("Purge any entries *not* in ENTRY_FILE")
-                    .long("purge-old")))
+                .arg(
+                    Arg::with_name("DB_FILE")
+                        .help("Path to frecency database file")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("ENTRY_FILE")
+                        .help("Path to list of entries, separated by newlines")
+                        .required(true)
+                        .index(2),
+                )
+                .arg(
+                    Arg::with_name("purge-old")
+                        .help("Purge any entries *not* in ENTRY_FILE")
+                        .long("purge-old"),
+                ),
+        )
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("init") {
-        let db_filename  = matches.value_of("DB_FILE").unwrap();
+        let db_filename = matches.value_of("DB_FILE").unwrap();
         let raw_filename = matches.value_of("ENTRY_FILE").unwrap();
         init_db(raw_filename, db_filename, epoch)?;
     }
 
     if let Some(matches) = matches.subcommand_matches("increment") {
-        let db_filename  = matches.value_of("DB_FILE").unwrap();
-        let entry        = matches.value_of("ENTRY").unwrap();
+        let db_filename = matches.value_of("DB_FILE").unwrap();
+        let entry = matches.value_of("ENTRY").unwrap();
         let (fields, lines) = read_db(db_filename)?;
         increment_db(&fields, &lines, now, db_filename, entry)?;
     }
 
     if let Some(matches) = matches.subcommand_matches("print") {
-        let db_filename  = matches.value_of("DB_FILE").unwrap();
-        let sort_method  = matches.value_of("sort").unwrap();
-        let verbose      = matches.is_present("verbose");
+        let db_filename = matches.value_of("DB_FILE").unwrap();
+        let sort_method = matches.value_of("sort").unwrap();
+        let verbose = matches.is_present("verbose");
         let (mut fields, _lines) = read_db(db_filename)?;
 
         match sort_method {
             "alphabetical" => fields.sort_by_data(),
-            "frecency"     => fields.sort_by_frecency(now),
-            "frequency"    => fields.sort_by_frequency(),
-            "recency"      => fields.sort_by_recency(),
-            "none"         => {},
-            _ => return Err(failure::err_msg("Unrecognized sort method"))
+            "frecency" => fields.sort_by_frecency(now),
+            "frequency" => fields.sort_by_frequency(),
+            "recency" => fields.sort_by_recency(),
+            "none" => {}
+            _ => return Err(failure::err_msg("Unrecognized sort method")),
         }
 
         let stdout = stdout();
         let lock = stdout.lock();
         let mut w = BufWriter::new(lock);
-        let to_str = |field: Field|
-            if verbose { field.to_info_str(now) }
-            else { field.data };
+        let to_str = |field: Field| {
+            if verbose {
+                field.to_info_str(now)
+            } else {
+                field.data
+            }
+        };
 
         for field in fields {
             writeln!(w, "{}", to_str(field))?;
@@ -379,14 +419,13 @@ fn main() -> Result<()> {
     }
 
     if let Some(matches) = matches.subcommand_matches("update") {
-        let db_filename  = matches.value_of("DB_FILE").unwrap();
+        let db_filename = matches.value_of("DB_FILE").unwrap();
         let raw_filename = matches.value_of("ENTRY_FILE").unwrap();
-        let purge_old    = matches.is_present("purge-old");
+        let purge_old = matches.is_present("purge-old");
 
         if !Path::new(db_filename).exists() {
             init_db(raw_filename, db_filename, epoch)?;
-        }
-        else {
+        } else {
             let (fields, _lines) = read_db(db_filename)?;
             update_db(&fields, raw_filename, db_filename, epoch, purge_old)?;
         }
