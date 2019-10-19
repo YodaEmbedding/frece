@@ -128,9 +128,10 @@ fn update_fields(
             .unwrap_or_else(|| Field::new(0, dt, x))
     });
 
-    let old_fields: Box<Iterator<Item = &Field>> = match purge_old {
-        true => Box::new(iter::empty::<&Field>()),
-        false => Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup)),
+    let old_fields: Box<dyn Iterator<Item = &Field>> = if purge_old {
+        Box::new(iter::empty::<&Field>())
+    } else {
+        Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup))
     };
     let old_fields = old_fields.map(|x| x.to_owned());
 
