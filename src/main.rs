@@ -175,6 +175,10 @@ fn get_old_fields<'a>(
     old_fields.into_iter().map(|(_, x)| x)
 }
 
+fn parse_time(s: &str) -> Result<chrono::DateTime<chrono::Utc>> {
+    Ok(DateTime::parse_from_rfc3339(&s)?.with_timezone(&Utc))
+}
+
 fn parse_line(line: &str) -> Result<Field> {
     let split = line.splitn(3, ',').collect::<Vec<&str>>();
 
@@ -183,7 +187,7 @@ fn parse_line(line: &str) -> Result<Field> {
         _ => return Err(failure::err_msg("Insufficient entries")),
     };
 
-    let time = DateTime::parse_from_rfc3339(&time_str)?.with_timezone(&Utc);
+    let time = parse_time(&time_str)?;
     let count = count_str.parse::<i64>()?;
 
     Ok(Field::new(count, time, data))
@@ -214,22 +218,23 @@ fn add_db(
     Ok(())
 }
 
-/// Increment specified database entry.
-///
-/// Increments total access count and sets last access time of entry.
-fn increment_db(
+/// Set specified database entry's fields via given function.
+fn setfield_db<FieldFunc>(
     fields: &[Field],
     lines: &[String],
-    dt: DateTime<Utc>,
     db_filename: &str,
     entry: &str,
-) -> Result<()> {
+    field_func: FieldFunc,
+) -> Result<()>
+where
+    FieldFunc: Fn(&Field) -> Field,
+{
     let line = fields
         .iter()
         .position(|x| x.data == entry)
         .ok_or(failure::err_msg("Entry not found in database"))?;
 
-    let field = Field::new(fields[line].count + 1, dt, &fields[line].data);
+    let field = field_func(&fields[line]);
     let write_str = field.to_string();
     let lengths = lines.iter().map(|x| x.len());
     let seek_begin = lengths.take(line).sum::<usize>() + line;
@@ -404,6 +409,34 @@ fn main() -> Result<()> {
                 ),
         )
         .subcommand(
+            SubCommand::with_name("set")
+                .about("Set an entry's frequency count and last access time")
+                .arg(
+                    Arg::with_name("DB_FILE")
+                        .help("Path to frecency database file")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("ENTRY")
+                        .help("Entry to modify")
+                        .required(true)
+                        .index(2),
+                )
+                .arg(
+                    Arg::with_name("count")
+                        .help("Frequency count")
+                        .long("count")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("time")
+                        .help("Last access time")
+                        .long("time")
+                        .takes_value(true),
+                ),
+        )
+        .subcommand(
             SubCommand::with_name("update")
                 .about("Updates a database file from given list of entries")
                 .arg(
@@ -443,7 +476,25 @@ fn main() -> Result<()> {
         let db_filename = matches.value_of("DB_FILE").unwrap();
         let entry = matches.value_of("ENTRY").unwrap();
         let (fields, lines) = read_db(db_filename)?;
-        increment_db(&fields, &lines, now, db_filename, entry)?;
+        setfield_db(&fields, &lines, db_filename, entry, |x| {
+            Field::new(x.count + 1, now, &x.data)
+        })?;
+    }
+
+    if let Some(matches) = matches.subcommand_matches("set") {
+        let db_filename = matches.value_of("DB_FILE").unwrap();
+        let entry = matches.value_of("ENTRY").unwrap();
+        let parse_count = str::parse::<i64>;
+        let count = matches.value_of("count").map(parse_count).transpose()?;
+        let time = matches.value_of("time").map(parse_time).transpose()?;
+        let (fields, lines) = read_db(db_filename)?;
+        setfield_db(&fields, &lines, db_filename, entry, |x| {
+            Field::new(
+                count.unwrap_or(x.count),
+                time.unwrap_or(x.time),
+                &x.data,
+            )
+        })?;
     }
 
     if let Some(matches) = matches.subcommand_matches("print") {
