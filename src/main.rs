@@ -189,6 +189,31 @@ fn parse_line(line: &str) -> Result<Field> {
     Ok(Field::new(count, time, data))
 }
 
+/// Add specified database entry, if it does not exist.
+fn add_db(
+    fields: &[Field],
+    db_filename: &str,
+    entry: &str,
+    dt: DateTime<Utc>,
+) -> Result<()> {
+    let line = fields.iter().position(|x| x.data == entry);
+
+    if line != None {
+        return Err(failure::err_msg("Entry found in database"));
+    }
+
+    let field = Field::new(0, dt, entry);
+
+    let mut db_file = OpenOptions::new().write(true).open(db_filename)?;
+
+    db_file.lock_exclusive()?;
+    db_file.seek(SeekFrom::End(0))?;
+    writeln!(&mut db_file, "{}", field)?;
+    db_file.unlock()?;
+
+    Ok(())
+}
+
 /// Increment specified database entry.
 ///
 /// Increments total access count and sets last access time of entry.
@@ -301,6 +326,22 @@ fn main() -> Result<()> {
         .author("Mateen Ulhaq <mulhaq2005@gmail.com>")
         .about("Frecency indexed database")
         .subcommand(
+            SubCommand::with_name("add")
+                .about("Add entry to database")
+                .arg(
+                    Arg::with_name("DB_FILE")
+                        .help("Path to frecency database file")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("ENTRY")
+                        .help("Entry to add")
+                        .required(true)
+                        .index(2),
+                ),
+        )
+        .subcommand(
             SubCommand::with_name("increment")
                 .about("Increases an entry's count and resets its timer")
                 .arg(
@@ -389,6 +430,13 @@ fn main() -> Result<()> {
         let db_filename = matches.value_of("DB_FILE").unwrap();
         let raw_filename = matches.value_of("ENTRY_FILE").unwrap();
         init_db(raw_filename, db_filename, epoch)?;
+    }
+
+    if let Some(matches) = matches.subcommand_matches("add") {
+        let db_filename = matches.value_of("DB_FILE").unwrap();
+        let entry = matches.value_of("ENTRY").unwrap();
+        let (fields, _lines) = read_db(db_filename)?;
+        add_db(&fields, db_filename, entry, epoch)?;
     }
 
     if let Some(matches) = matches.subcommand_matches("increment") {
