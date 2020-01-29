@@ -3,8 +3,9 @@ extern crate clap;
 extern crate failure;
 extern crate fs2;
 
+mod args;
+
 use chrono::{prelude::*, DateTime, NaiveDateTime};
-use clap::{App, Arg, SubCommand};
 use fs2::FileExt;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -12,6 +13,8 @@ use std::fs::{self, OpenOptions};
 use std::io::{prelude::*, stdout, BufWriter, SeekFrom};
 use std::iter;
 use std::path::Path;
+
+use self::args::get_matches;
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -325,139 +328,7 @@ fn main() -> Result<()> {
     let native_dt_epoch = NaiveDateTime::from_timestamp(0, 0);
     let epoch = DateTime::<Utc>::from_utc(native_dt_epoch, Utc);
     let now = Utc::now();
-
-    let matches = App::new("frece")
-        .version("1.0.3")
-        .author("Mateen Ulhaq <mulhaq2005@gmail.com>")
-        .about("Frecency indexed database")
-        .subcommand(
-            SubCommand::with_name("add")
-                .about("Add entry to database")
-                .arg(
-                    Arg::with_name("DB_FILE")
-                        .help("Path to frecency database file")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("ENTRY")
-                        .help("Entry to add")
-                        .required(true)
-                        .index(2),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("increment")
-                .about("Increases an entry's count and resets its timer")
-                .arg(
-                    Arg::with_name("DB_FILE")
-                        .help("Path to frecency database file")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("ENTRY")
-                        .help("Entry to increment")
-                        .required(true)
-                        .index(2),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("init")
-                .about("Creates a database file from given list of entries")
-                .arg(
-                    Arg::with_name("DB_FILE")
-                        .help("Path to frecency database file")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("ENTRY_FILE")
-                        .help("Path to list of entries, separated by newlines")
-                        .required(true)
-                        .index(2),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("print")
-                .about("Prints list of frecency sorted entries")
-                .arg(
-                    Arg::with_name("DB_FILE")
-                        .help("Path to frecency database file")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("sort")
-                        .help("Sort method")
-                        .long("sort")
-                        .takes_value(true)
-                        .default_value("frecency")
-                        .possible_values(&[
-                            "none",
-                            "alphabetical",
-                            "frecency",
-                            "frequency",
-                            "recency",
-                        ]),
-                )
-                .arg(
-                    Arg::with_name("verbose")
-                        .help("Outputs frecency, counts, date, and entries")
-                        .short("v")
-                        .long("verbose"),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("set")
-                .about("Set an entry's frequency count and last access time")
-                .arg(
-                    Arg::with_name("DB_FILE")
-                        .help("Path to frecency database file")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("ENTRY")
-                        .help("Entry to modify")
-                        .required(true)
-                        .index(2),
-                )
-                .arg(
-                    Arg::with_name("count")
-                        .help("Frequency count")
-                        .long("count")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("time")
-                        .help("Last access time")
-                        .long("time")
-                        .takes_value(true),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("update")
-                .about("Updates a database file from given list of entries")
-                .arg(
-                    Arg::with_name("DB_FILE")
-                        .help("Path to frecency database file")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("ENTRY_FILE")
-                        .help("Path to list of entries, separated by newlines")
-                        .required(true)
-                        .index(2),
-                )
-                .arg(
-                    Arg::with_name("purge-old")
-                        .help("Purge any entries *not* in ENTRY_FILE")
-                        .long("purge-old"),
-                ),
-        )
-        .get_matches();
+    let matches = get_matches();
 
     if let Some(matches) = matches.subcommand_matches("init") {
         let db_filename = matches.value_of("DB_FILE").unwrap();
