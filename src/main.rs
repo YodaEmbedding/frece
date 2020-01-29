@@ -96,7 +96,9 @@ fn frecency(count: i64, secs: i64) -> f64 {
         return 0.0;
     }
 
-    let x = 0.0 + 0.75 * (1.0 + count as f64).ln() - 0.25 * (1.0 + secs as f64).ln();
+    let c = 0.75 * (1.0 + count as f64).ln();
+    let s = -0.25 * (1.0 + secs as f64).ln();
+    let x = c + s;
 
     1.0 / (1.0 + (-x).exp())
 }
@@ -220,7 +222,11 @@ fn increment_db(
 }
 
 /// Initializes database using given list of entries.
-fn init_db(raw_filename: &str, db_filename: &str, dt: DateTime<Utc>) -> Result<()> {
+fn init_db(
+    raw_filename: &str,
+    db_filename: &str,
+    dt: DateTime<Utc>,
+) -> Result<()> {
     let raw_str = fs::read_to_string(raw_filename)?;
     let fields = raw_str.lines().map(|line| Field::new(0, dt, line));
     write_fields(fields, db_filename)?;
@@ -263,7 +269,10 @@ fn update_db(
 }
 
 /// Write fields to new database.
-fn write_fields(fields: impl Iterator<Item = Field>, filename: &str) -> Result<()> {
+fn write_fields(
+    fields: impl Iterator<Item = Field>,
+    filename: &str,
+) -> Result<()> {
     let tmp_filename = format!("{}{}", filename, ".tmp");
     let mut tmp_file = BufWriter::new(
         OpenOptions::new()
@@ -283,7 +292,8 @@ fn write_fields(fields: impl Iterator<Item = Field>, filename: &str) -> Result<(
 }
 
 fn main() -> Result<()> {
-    let epoch = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(0, 0), Utc);
+    let native_dt_epoch = NaiveDateTime::from_timestamp(0, 0);
+    let epoch = DateTime::<Utc>::from_utc(native_dt_epoch, Utc);
     let now = Utc::now();
 
     let matches = App::new("frece")
