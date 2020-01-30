@@ -106,7 +106,7 @@ dependencies = [
 
 [[package]]
 name = "frece"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
