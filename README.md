@@ -1,5 +1,5 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://travis-ci.com/SicariusNoctis/frece.svg?branch=master)](https://travis-ci.com/SicariusNoctis/frece)
+[![Build Status](https://travis-ci.com/YodaEmbedding/frece.svg?branch=master)](https://travis-ci.com/YodaEmbedding/frece)
 
 Maintain a database sorted by [frecency](https://en.wikipedia.org/wiki/Frecency) (frequency + recency).
 
@@ -11,7 +11,7 @@ Maintain a database sorted by [frecency](https://en.wikipedia.org/wiki/Frecency)
 
 ## Installation
 
-Simply [download the latest release](https://github.com/SicariusNoctis/frece/releases) and add the `frece` executable to `PATH`.
+Simply [download the latest release](https://github.com/YodaEmbedding/frece/releases) and add the `frece` executable to `PATH`.
 
 Arch Linux users may install from the AUR packages [`frece`](https://aur.archlinux.org/packages/frece) or [`frece-git`](https://aur.archlinux.org/packages/frece-git).
 
