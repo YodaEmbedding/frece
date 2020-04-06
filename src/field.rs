@@ -82,8 +82,8 @@ fn frecency(count: i64, secs: i64) -> f64 {
         return 0.0;
     }
 
-    let c = 0.75 * (1.0 + count as f64).ln();
-    let s = -0.25 * (1.0 + secs as f64).ln();
+    let c = 0.25 * (1.0 + count as f64).ln();
+    let s = -0.15 * (1.0 + secs as f64).ln();
     let x = c + s;
 
     1.0 / (1.0 + (-x).exp())
