@@ -1,7 +1,7 @@
 use chrono::{prelude::*, DateTime};
 use fs2::FileExt;
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::{prelude::*, BufWriter, SeekFrom};
 use std::iter;
 
@@ -192,12 +192,7 @@ fn write_fields(
     filename: &str,
 ) -> Result<()> {
     let tmp_filename = format!("{}{}", filename, ".tmp");
-    let mut tmp_file = BufWriter::new(
-        OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&tmp_filename)?,
-    );
+    let mut tmp_file = BufWriter::new(File::create(&tmp_filename)?);
 
     for field in fields {
         writeln!(&mut tmp_file, "{}", field)?;
