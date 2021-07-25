@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DB_FILE="$HOME/.frece_file.db"
+DB_FILE="$HOME/.frece/db/file.db"
 ENTRIES_FILE="/tmp/frece_file_entries.txt"
 
 find "$@" -path '*/\.*' -prune -o -not -name '.*' -type f -print | \

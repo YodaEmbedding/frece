@@ -1,8 +1,8 @@
 #!/bin/bash
 
-DB_FILE="$HOME/.frece_emoji.db"
+DB_FILE="$HOME/.frece/db/emoji.db"
 ENTRIES_FILE="/tmp/frece_emoji_entries.txt"
-CUSTOM_ENTRIES_FILE="$HOME/.frece_emoji_custom.txt"
+CUSTOM_ENTRIES_FILE="$HOME/.frece/src/emoji_custom.txt"
 URL="http://www.unicode.org/Public/emoji/11.0/emoji-test.txt"
 
 curl -s "$URL" | \
