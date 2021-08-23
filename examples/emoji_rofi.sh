@@ -1,6 +1,7 @@
 #!/bin/bash
 
-DB_FILE="$HOME/.frece/db/emoji.db"
+DATA_DIR="$HOME/.config/frece"
+DB_FILE="$DATA_DIR/emoji.db"
 
 item=$(frece print "$DB_FILE" | rofi "$@" -dmenu)
 [[ -z $item ]] && exit 1
