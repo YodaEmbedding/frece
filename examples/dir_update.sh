@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DATA_DIR="$HOME/.config/frece"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/frece"
 DB_FILE="$DATA_DIR/dir.db"
 ENTRIES_FILE="/tmp/frece_dir_entries.txt"
 

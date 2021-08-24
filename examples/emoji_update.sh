@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DATA_DIR="$HOME/.config/frece"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/frece"
 DB_FILE="$DATA_DIR/emoji.db"
 ENTRIES_FILE="/tmp/frece_emoji_entries.txt"
 CUSTOM_ENTRIES_FILE="$DATA_DIR/emoji_custom.txt"
