@@ -1,6 +1,6 @@
 [package]
 name = "frece"
-version = "1.0.4"
+version = "1.0.5"
 authors = ["Mateen Ulhaq <mulhaq2005@gmail.com>"]
 edition = "2018"
 

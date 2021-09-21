@@ -10,7 +10,7 @@ pub fn get_matches<'a>() -> clap::ArgMatches<'a> {
         .required(true);
 
     App::new("frece")
-        .version("1.0.4")
+        .version("1.0.5")
         .author("Mateen Ulhaq <mulhaq2005@gmail.com>")
         .about("Frecency indexed database")
         .subcommand(
