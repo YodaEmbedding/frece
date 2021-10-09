@@ -1,5 +1,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://travis-ci.com/YodaEmbedding/frece.svg?branch=master)](https://travis-ci.com/YodaEmbedding/frece)
+[![CI Status](https://github.com/YodaEmbedding/frece/actions/workflows/ci.yml/badge.svg)](https://github.com/YodaEmbedding/frece/actions/workflows/ci.yml)
+[![Publish Status](https://github.com/YodaEmbedding/frece/actions/workflows/publish.yml/badge.svg)](https://github.com/YodaEmbedding/frece/actions/workflows/publish.yml)
 
 Maintain a database sorted by [frecency](https://en.wikipedia.org/wiki/Frecency) (frequency + recency).
 
