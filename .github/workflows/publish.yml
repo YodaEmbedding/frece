@@ -1,0 +1,106 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  deploy:
+    name: Publish for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    env:
+      PROJECT_NAME: frece
+      STAGE_ROOT: staging
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [
+          x86_64-unknown-linux-gnu,
+          x86_64-apple-darwin,
+          x86_64-pc-windows-msvc,
+          x86_64-pc-windows-gnu,
+          ]
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+          - target: x86_64-pc-windows-gnu
+            os: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: System information
+        shell: bash
+        run: |
+          uname -a
+
+      - name: Environment
+        id: environment
+        shell: bash
+        run: |
+          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: Install other dependencies
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" =~ "windows" ]]; then
+            choco install zip
+          fi
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --all-features --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          TARGET="${{ matrix.target }}"
+          STAGE_ROOT="${{ env.STAGE_ROOT }}"
+          STAGE_DIR="$STAGE_ROOT/$TARGET"
+          PROJECT_NAME="${{ env.PROJECT_NAME }}"
+          if [[ $TARGET =~ "windows" ]]; then
+            BINARY_PATH="target/$TARGET/release/$PROJECT_NAME.exe"
+          else
+            BINARY_PATH="target/$TARGET/release/$PROJECT_NAME"
+          fi
+          mkdir -p "$STAGE_DIR"
+          cp "$BINARY_PATH" "$STAGE_DIR"
+          cp LICENSE "$STAGE_DIR"
+          cp README.md "$STAGE_DIR"
+          cd "$STAGE_ROOT"
+          if [[ $TARGET =~ "windows" ]]; then
+            zip -r "$TARGET.zip" "$TARGET"
+          else
+            tar -czvf "$TARGET.tar.gz" "$TARGET"
+          fi
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ${{ steps.environment.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          files: |
+            ./${{ env.STAGE_ROOT }}/*.tar.gz
+            ./${{ env.STAGE_ROOT }}/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
