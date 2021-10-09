@@ -57,7 +57,7 @@ pub fn read_db(db_filename: &str) -> Result<(Vec<Field>, Vec<String>)> {
 
     let fields = lines
         .iter()
-        .map(|x| parse_line(&x))
+        .map(|x| parse_line(x))
         .collect::<Result<Vec<Field>>>()?;
 
     Ok((fields, lines))
@@ -77,7 +77,7 @@ where
     let line = fields
         .iter()
         .position(|x| x.data == entry)
-        .ok_or(failure::err_msg("Entry not found in database"))?;
+        .ok_or_else(|| failure::err_msg("Entry not found in database"))?;
 
     let field = field_func(&fields[line]);
     let write_str = field.to_string();
@@ -109,7 +109,7 @@ pub fn update_db(
         .lines()
         .map(|x| x.to_owned())
         .collect::<Vec<String>>();
-    let fields = update_fields(&raw_lines, &db_fields, dt, purge_old);
+    let fields = update_fields(&raw_lines, db_fields, dt, purge_old);
     write_fields(fields.into_iter(), db_filename)?;
     Ok(())
 }
@@ -144,7 +144,7 @@ fn update_fields(
     let old_fields: Box<dyn Iterator<Item = &Field>> = if purge_old {
         Box::new(iter::empty::<&Field>())
     } else {
-        Box::new(get_old_fields(&raw_lines, &db_fields, &db_lookup))
+        Box::new(get_old_fields(raw_lines, db_fields, &db_lookup))
     };
     let old_fields = old_fields.map(|x| x.to_owned());
 
@@ -173,7 +173,7 @@ fn get_old_fields<'a>(
 
         db_set
             .difference(&raw_set)
-            .map(|&x| x)
+            .copied()
             .collect::<HashSet<&String>>()
     };
 
@@ -205,7 +205,7 @@ fn write_fields(
 }
 
 pub fn parse_time(s: &str) -> Result<chrono::DateTime<chrono::Utc>> {
-    Ok(DateTime::parse_from_rfc3339(&s)?.with_timezone(&Utc))
+    Ok(DateTime::parse_from_rfc3339(s)?.with_timezone(&Utc))
 }
 
 fn parse_line(line: &str) -> Result<Field> {
@@ -216,7 +216,7 @@ fn parse_line(line: &str) -> Result<Field> {
         _ => return Err(failure::err_msg("Insufficient entries")),
     };
 
-    let time = parse_time(&time_str)?;
+    let time = parse_time(time_str)?;
     let count = count_str.parse::<i64>()?;
 
     Ok(Field::new(count, time, data))
